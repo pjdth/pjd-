@@ -1,0 +1,9 @@
+"""
+    @Author:th
+    @Time:2026/7/16
+    @Desc:
+"""
+print(chr(97))
+print(ord('a'))
+print('abc'>'b')
+print(int('abc'))
