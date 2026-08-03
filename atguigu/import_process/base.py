@@ -7,7 +7,7 @@ class NodeBase(ABC):
     def __init__(self):
         if self.name == "NodeBase":
             raise ValueError(f'{self.__class__.__name__}请输入name属性')
-    def __cal__(self,state:ImportGraphState):
+    def __call__(self,state:ImportGraphState):
         try:
             logger.info(f'{self.name}开始执行')
             res=self.process(state)
