@@ -5,7 +5,10 @@ from atguigu.import_process.base import NodeBase
 from atguigu.import_process.state import ImportGraphState
 from atguigu.tool.json_tool import json_tool
 from atguigu.tool.logger import logger
-
+#拿到pdf，和输出文件夹路径，判断pdf是否在写了是否在文件夹中，返回pdf_path_obj,load_path_obj
+#pdf存在之后，用mineru api上传文件3次判断，1请求是否成功，2请求数据是否存在，3如果上传了多个文件，查看多个文件上传成功，拿到batch_id
+#拿到batch_id，用bath_id一次一次去请求拿到下载url
+#拿到url之后用requests下载文件，判断请求是否成功，判断保存文件地址是否存在，保存文件，再解压文件，如果解压文件存在，先删除再解压保存，解压后再修改full.md文件名字
 
 
 class NodePDFToMD(NodeBase):
@@ -117,19 +120,13 @@ class NodePDFToMD(NodeBase):
         if md_zip_res.status_code != 200:
             logger.error("下载PDF文件处理结果zip压缩包请求失败")
             raise Exception(f"下载PDF文件处理结果zip压缩包请求失败")
-        # 这里也是在发请求，但是我们所说三层考虑判断只需要做一层，因为这次数据内容是直接放在请求回来的响应对象上的
         md_zip_content = md_zip_res.content
-        #         我们获取到的是zip的内容，并不是直接变成zip文件，我们需要通过文件流操作把这个内容写入磁盘文件
-        #         print(md_zip_content)
 
-        #         构造下载的磁盘文件的路径
         md_zip_path_obj = local_dir_obj / f"{pdf_path_obj.stem}.zip"
 
-        # 以后读写文件如果是读写二进制，不要加encoding="utf-8"  如果不是二进制就加
         with open(md_zip_path_obj, 'wb') as f:
             f.write(md_zip_content)
 
-        #       解压zip文件
         import zipfile
         import shutil
         unzip_file_content = zipfile.ZipFile(md_zip_path_obj)
@@ -164,7 +161,7 @@ class NodePDFToMD(NodeBase):
         # 第三大步：等待mineru处理完成,我们需要轮询给mineru发请求，获取一个压缩包zip的url
         md_zip_url = self.download_md_zip_url(batch_id)
 
-        #       第四大步：下载zip压缩文件，解压，重命名，把文件的内容读取保存state
+        # 第四大步：下载zip压缩文件，解压，重命名，把文件的内容读取保存state
         md_content, new_md_path_obj = self.download_pdf(md_zip_url, local_dir_obj, pdf_path_obj)
 
         return {
