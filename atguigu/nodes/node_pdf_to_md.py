@@ -55,6 +55,7 @@ class NodePDFToMD(NodeBase):
         if response.status_code != 200:
             raise Exception("上传pdf请求失败")
         result = response.json()
+
         if result["code"] != 0:
             raise Exception("上传pdf获取数据失败")
         batch_id = result["data"]["batch_id"]
@@ -72,7 +73,6 @@ class NodePDFToMD(NodeBase):
         return batch_id
 
     def download_md_zip_url(self, batch_id):
-
 
         import requests
         import time
