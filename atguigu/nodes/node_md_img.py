@@ -23,64 +23,72 @@ class NodeMDImg(NodeBase):
 
     name = "node_md_img"
 
-    def process(self, state: ImportGraphState):
-        md_path=state.get("md_path",'')
+    def pre_process(self, state: ImportGraphState):
+        md_path = state.get("md_path", '')
         if not md_path:
             raise ValueError("未输入md文件路径，请输入md文件路径")
-        md_path_obj=Path(md_path)
+
+        md_path_obj = Path(md_path)
+
         if not md_path_obj.exists():
             raise FileNotFoundError("输入文件不存在")
 
         with open(md_path_obj, 'r', encoding="utf-8") as f:
-            md_content=f.read()
+            md_content = f.read()
         if not md_content:
             raise ValueError("md文件内容为空")
 
-        images_dir_obj=md_path_obj.parent / "images"
+        images_dir_obj = md_path_obj.parent / "images"
         if not images_dir_obj.exists():
             logger.info("文件中没有图片")
             return md_content
 
-        images_list=os.listdir(images_dir_obj)
+        images_list = os.listdir(images_dir_obj)
         logger.info(f"文件中图片为{images_list}")
         if not images_list:
             logger.info("文件中没有图片")
             return md_content
-        MAX_CONNECTING=250
+
+        return md_content,images_dir_obj,images_list
+
+    def get_pre_next_context(self,images_list,md_content,images_dir_obj ):
+        MAX_CONNECTING = 250
         IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp"}
-        image_with_content=[]
+        image_with_content = []  # 有上下文的数组
         for image_name in images_list:
             if Path(image_name).suffix.lower() not in IMAGE_EXTENSIONS:
                 logger.warning(f"图片{image_name}不支持格式")
                 continue
             pattern = re.compile(r"!\[.*?\]\(.*?" + re.escape(image_name) + r"\)")
-            true_image=pattern.search(md_content)
+            true_image = pattern.search(md_content)
             logger.info(f"图片在文件中为{true_image}")
             if not true_image:
                 logger.warning(f"图片{image_name}未找到")
                 continue
-            start,end=true_image.span()
+            start, end = true_image.span()
             logger.info(f"图片{image_name}在文件中的起始位置为{start}，结束位置为{end}")
-            pre_text=md_content[max(0,start-MAX_CONNECTING):start]
-            post_text=md_content[end:min(len(md_content),end+MAX_CONNECTING)]
-            image_path=str(images_dir_obj / image_name)
+            pre_text = md_content[max(0, start - MAX_CONNECTING):start]
+            post_text = md_content[end:min(len(md_content), end + MAX_CONNECTING)]
+            image_path = str(images_dir_obj / image_name)
 
             image_with_content.append({
-                "image_name":image_name,
-                "pre_text":pre_text,
-                "post_text":post_text,
-                "image_path":image_path
+                "image_name": image_name,
+                "pre_text": pre_text,
+                "post_text": post_text,
+                "image_path": image_path
             })
         # print("图片与文件内容关系为")
         # print(json.dumps(image_with_content, ensure_ascii=False, indent=2))
+        return image_with_content
 
-        llm=init_chat_model(
+    def get_summary(self,image_with_content):
+        llm = init_chat_model(
             model=LLMConfig.vl_model,
             model_provider="openai",
             temperature=LLMConfig.llm_default_temperature
         )
 
-        dp=deque(maxlen=50)
+        dp = deque(maxlen=50)
         for image in image_with_content:
             join_time = time.time()
             if len(dp) == dp.maxlen:
@@ -106,17 +114,27 @@ class NodeMDImg(NodeBase):
                             },
                         },
                         {"type": "text", "text": f"""这是一张图片，图片上文部分为"{image.get("pre_text")}"，
-                                            下文部分为"{image.get("post_text")}"，请用中文简要总结这张图片的摘要,字数在50字以内。"""},
+                                                    下文部分为"{image.get("post_text")}"，请用中文简要总结这张图片的摘要,字数在50字以内。"""},
                     ],
                 },
             ]
 
-            res=llm.invoke(messages)
+            res = llm.invoke(messages)
             image["content"] = res.content
             image.pop("pre_text")
             image.pop("post_text")
 
-        print(json.dumps(image_with_content, ensure_ascii=False, indent=2))
+        return json.dumps(image_with_content, ensure_ascii=False, indent=2)
+
+    def process(self, state: ImportGraphState):
+        md_content,images_dir_obj,images_list = self.pre_process(state)
+
+        image_with_content = self.get_pre_next_context(images_list,md_content,images_dir_obj)
+
+        return self.get_summary(image_with_content)
+
+
+
 if __name__ == '__main__':
     node=NodeMDImg()
     my_state={"md_path":r"D:\code\uv1\data\out\hak180产品安全手册\hak180产品安全手册.md"}
