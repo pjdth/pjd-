@@ -24,18 +24,18 @@ class NodePDFToMD(NodeBase):
         if not pdf_path_obj.exists():
             raise FileNotFoundError("输入文件不存在")
         load_path_obj=Path(load_path)
-        if load_path_obj.exists():
+        if not load_path_obj.exists():
             load_path_obj.mkdir(parents=True,exist_ok=True)
-        return pdf_path_obj,load_path_obj
+        return pdf_path,pdf_path_obj,load_path_obj
 
-    def up_pdf(self,state:ImportGraphState):
-        pdf_path_obj,load_path_obj=self.check_pdf(state)
+    def up_pdf(self,pdf_path_obj,load_path_obj):
         from dotenv import load_dotenv
         import requests
         load_dotenv(override=True)
 
         token = MineruConfig.mineru_token
-        url = f"{MineruConfig.mineru_url}/file-urls/batch"
+        url = "https://mineru.net/api/v4/file-urls/batch"
+        logger.info(f"上传pdf请求开始，token:{token},url:{url}")
         header = {
             "Content-Type": "application/json",
             "Authorization": f"Bearer {token}"
@@ -111,11 +111,67 @@ class NodePDFToMD(NodeBase):
         logger.info(f"获取解析结果成功,{md_zip_url}")
         return md_zip_url
 
-    def download_pdf(self, md_zip_url, local_dir_path_obj, pdf_path_obj):
-        pass
+    def download_pdf(self, md_zip_url, local_dir_obj, pdf_path_obj):
+        import requests
+        md_zip_res = requests.get(md_zip_url)
+        if md_zip_res.status_code != 200:
+            logger.error("下载PDF文件处理结果zip压缩包请求失败")
+            raise Exception(f"下载PDF文件处理结果zip压缩包请求失败")
+        # 这里也是在发请求，但是我们所说三层考虑判断只需要做一层，因为这次数据内容是直接放在请求回来的响应对象上的
+        md_zip_content = md_zip_res.content
+        #         我们获取到的是zip的内容，并不是直接变成zip文件，我们需要通过文件流操作把这个内容写入磁盘文件
+        #         print(md_zip_content)
+
+        #         构造下载的磁盘文件的路径
+        md_zip_path_obj = local_dir_obj / f"{pdf_path_obj.stem}.zip"
+
+        # 以后读写文件如果是读写二进制，不要加encoding="utf-8"  如果不是二进制就加
+        with open(md_zip_path_obj, 'wb') as f:
+            f.write(md_zip_content)
+
+        #       解压zip文件
+        import zipfile
+        import shutil
+        unzip_file_content = zipfile.ZipFile(md_zip_path_obj)
+        #       解压到哪，构造解压的目的地 路径
+        unzip_file_path_obj = local_dir_obj / f"{pdf_path_obj.stem}"
+
+        #       判断解压的目录存在不存在，如果存在先删除，然后再创建
+        if unzip_file_path_obj.exists():
+            shutil.rmtree(unzip_file_path_obj)
+        unzip_file_path_obj.mkdir(parents=True, exist_ok=True)
+
+        #         真正的把解压的内容，放到这个目录
+        unzip_file_content.extractall(unzip_file_path_obj)
+
+        #       解压完成后，原本的md文件叫 full.md,我们需要重命名
+        origin_md_path_obj = unzip_file_path_obj / "full.md"
+        new_md_path_obj = origin_md_path_obj.with_name(f"{pdf_path_obj.stem}.md")  # 在内存当中改了，我们还得落盘
+        origin_md_path_obj.rename(new_md_path_obj)
+
+        # 读取Markdown文件内容 存储state
+        with open(new_md_path_obj, 'r', encoding="utf-8") as f:
+            md_content = f.read()
+        return md_content, new_md_path_obj
 
     def process(self, state: ImportGraphState):
-        pass
+        # 第一大步：校验pdf路径的存在
+        pdf_path, pdf_path_obj, local_dir_obj = self.check_pdf(state)
+
+        # 第二大步：上传pdf到mineru要获取batch_id
+        batch_id = self.up_pdf(pdf_path_obj,local_dir_obj )
+
+        # 第三大步：等待mineru处理完成,我们需要轮询给mineru发请求，获取一个压缩包zip的url
+        md_zip_url = self.download_md_zip_url(batch_id)
+
+        #       第四大步：下载zip压缩文件，解压，重命名，把文件的内容读取保存state
+        md_content, new_md_path_obj = self.download_pdf(md_zip_url, local_dir_obj, pdf_path_obj)
+
+        return {
+            "md_path": str(new_md_path_obj),
+            "md_content": md_content
+        }
+
 
 if __name__ == '__main__':
     node=NodePDFToMD()

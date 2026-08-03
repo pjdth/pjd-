@@ -18,6 +18,8 @@ class ImportMainGraphRunner:
         self.builder=StateGraph(state_schema=ImportGraphState)
         self.add_node()
         self.add_edge()
+        self.garph=None
+
     def add_node(self):
 
         self.builder.add_node(NodeEntry.name, NodeEntry())
@@ -49,8 +51,8 @@ class ImportMainGraphRunner:
         self.builder.add_edge(NodeImportMilvus.name,END)
 
     def garph_invoke(self,state:ImportGraphState):
-        graph=self.builder.compile()
-        return graph.invoke(state)
+        self.graph=self.builder.compile()
+        return self.graph.invoke(state)
 
     @classmethod
     def create_run(cls,state:ImportGraphState):
