@@ -92,13 +92,14 @@ class NodePDFToMD(NodeBase):
                 res = requests.get(url, headers=header)
                 if res.status_code != 200:
                     raise Exception("获取解析结果的请求失败")
+
                 result = res.json()
                 if result["code"] != 0:
                     raise Exception("获取解析请求结果失败")
                 data = result["data"]["extract_result"][0]
 
                 if data["state"] != "done":
-                    raise Exception("获取解析结果错误")
+                    raise Exception("正在读取文件工作中")
                 md_zip_url = data["full_zip_url"]
             except Exception as e:
                 logger.error(f"获取解析结果失败{e}，正在重试")
