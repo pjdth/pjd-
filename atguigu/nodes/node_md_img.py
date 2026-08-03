@@ -71,8 +71,8 @@ class NodeMDImg(NodeBase):
                 "post_text":post_text,
                 "image_path":image_path
             })
-        print("图片与文件内容关系为")
-        print(json.dumps(image_with_content, ensure_ascii=False, indent=2))
+        # print("图片与文件内容关系为")
+        # print(json.dumps(image_with_content, ensure_ascii=False, indent=2))
 
         llm=init_chat_model(
             model=LLMConfig.vl_model,
@@ -112,9 +112,11 @@ class NodeMDImg(NodeBase):
             ]
 
             res=llm.invoke(messages)
-            print(res.content)
+            image["content"] = res.content
+            image.pop("pre_text")
+            image.pop("post_text")
 
-        print(json.dumps(images_list, ensure_ascii=False, indent=2))
+        print(json.dumps(image_with_content, ensure_ascii=False, indent=2))
 if __name__ == '__main__':
     node=NodeMDImg()
     my_state={"md_path":r"D:\code\uv1\data\out\hak180产品安全手册\hak180产品安全手册.md"}
