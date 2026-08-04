@@ -139,7 +139,7 @@ class NodePDFToMD(NodeBase):
             shutil.rmtree(unzip_file_path_obj)
         unzip_file_path_obj.mkdir(parents=True, exist_ok=True)
 
-        #         真正的把解压的内容，放到这个目录
+        #       真正的把解压的内容，放到这个目录
         unzip_file_content.extractall(unzip_file_path_obj)
 
         #       解压完成后，原本的md文件叫 full.md,我们需要重命名
