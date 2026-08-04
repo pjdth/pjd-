@@ -5,6 +5,8 @@
 """
 from pathlib import Path
 
+from atguigu.tool.logger import logger
+
 
 def download_md(md_zip_url,local_dir_obj,pdf_path_obj):
     import requests
@@ -27,7 +29,12 @@ def download_md(md_zip_url,local_dir_obj,pdf_path_obj):
     unzip_file_path_obj.mkdir(parents=True,exist_ok=True)
     zip_content.extractall(unzip_file_path_obj)
 
-
+    res_dir_path_obj=local_dir_obj/unzip_file_path_obj.stem/'full.md'
+    new_name=res_dir_path_obj.with_name(f"{unzip_file_path_obj.stem}.md")
+    fin_dir_path_obj=res_dir_path_obj.rename(new_name)
+    with open(fin_dir_path_obj,'r',encoding="utf-8") as f:
+        md_content=f.read()
+    return md_content,fin_dir_path_obj
 
 
 if __name__ == '__main__':
@@ -38,4 +45,4 @@ if __name__ == '__main__':
     md_zip_url=get_url(batch_id)
     pdf_path_obj=Path(r"D:\code\uv1\data\hak180产品安全手册.pdf")
     local_dir_obj=Path(r"D:\code\uv1\data\out")
-    download_md(md_zip_url,local_dir_obj,pdf_path_obj)
+    logger.info(download_md(md_zip_url,local_dir_obj,pdf_path_obj))
