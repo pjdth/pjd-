@@ -1,7 +1,8 @@
 import os
 
 from dotenv import load_dotenv
-load_dotenv(override=True)
+env_path =os.path.abspath(os.path.join(os.path.dirname(__file__), '../../.env'))
+load_dotenv(override=True,dotenv_path=env_path)
 
 class MineruConfig:
     mineru_token = os.getenv("MINERUN_TOKEN")
