@@ -7,13 +7,15 @@ from collections import deque
 from pathlib import Path
 
 from langchain.chat_models import init_chat_model
+from minio.deleteobjects import DeleteObject
 from openai import api_key
 from pymongo.common import MAX_CONNECTING
 
-from atguigu.config.config import LLMConfig
+from atguigu.config.config import LLMConfig, MinIoConfig
 from atguigu.import_process.base import NodeBase
 from atguigu.import_process.state import ImportGraphState
 from atguigu.tool.logger import logger
+from atguigu.tool.minio_client_tool import get_minio_client
 
 
 class NodeMDImg(NodeBase):
@@ -41,15 +43,15 @@ class NodeMDImg(NodeBase):
         images_dir_obj = md_path_obj.parent / "images"
         if not images_dir_obj.exists():
             logger.info("文件中没有图片")
-            return md_content
+            return md_content, None, [], md_path_obj
 
         images_list = os.listdir(images_dir_obj)
         logger.info(f"文件中图片为{images_list}")
         if not images_list:
             logger.info("文件中没有图片")
-            return md_content
+            return md_content, None, [], md_path_obj
 
-        return md_content,images_dir_obj,images_list
+        return md_content,images_dir_obj,images_list,md_path_obj
 
     def get_pre_next_context(self,images_list,md_content,images_dir_obj ):
         MAX_CONNECTING = 250
@@ -120,20 +122,73 @@ class NodeMDImg(NodeBase):
             ]
 
             res = llm.invoke(messages)
-            image["content"] = res.content
+            image["summary"] = res.content
             image.pop("pre_text")
             image.pop("post_text")
 
-        return json.dumps(image_with_content, ensure_ascii=False, indent=2)
+        # 注意：这里必须返回「列表」，不能 json.dumps 成字符串，
+        # 否则 get_minio_url 遍历字符串会逐个拿到字符而报错
+        return image_with_content
+
+    def get_minio_url(self,image_with_summary):
+        minio_client = get_minio_client()
+        up_image_path = MinIoConfig.minio_img_dir
+
+        old_image_list = minio_client.list_objects(bucket_name=MinIoConfig.minio_bucket_name, prefix=up_image_path)
+        # 调用api删除旧图片
+        if old_image_list:
+            # del_list里面是要删除的图片对象
+            del_list = [DeleteObject(old_image_obj.object_name) for old_image_obj in old_image_list]
+
+            errors = minio_client.remove_objects(
+                bucket_name=MinIoConfig.minio_bucket_name,
+                delete_object_list=del_list,
+            )
+
+            if errors:
+                for error in errors:
+                    print(f'删除图片为{error}')
+        # 准备上传图片
+        image_summary_and_url_list = []
+        for image_summary in image_with_summary:
+            minio_client.fput_object(
+                bucket_name=MinIoConfig.minio_bucket_name,
+                object_name=f'{up_image_path}/{image_summary["image_name"]}',
+                file_path=image_summary["image_path"],
+
+            )
+            image_summary_and_url_list.append({
+                **image_summary,
+                "image_url": f'http://{MinIoConfig.minio_endpoint}/{MinIoConfig.minio_bucket_name}/{MinIoConfig.minio_img_dir}/{image_summary["image_name"]}',
+            })
+        return image_summary_and_url_list
+
+    def update_md_file(self,image_summary_and_url_list, md_content, md_path_obj):
+        for image_with_summary in image_summary_and_url_list:
+            pattern = re.compile(r"!\[.*?\]\(.*?" + re.escape(image_with_summary["image_name"]) + r"\)")
+            md_content = pattern.sub(lambda m: f"![{image_with_summary['summary']}]({image_with_summary['image_url']})",
+                                     md_content)
+            # 保存新的md文件
+        new_md_path_obj = md_path_obj.parent / (str(md_path_obj.stem) + "_new.md")
+        with open(new_md_path_obj, "w", encoding="utf-8") as f:
+            f.write(md_content)
+        return md_content, str(new_md_path_obj)
 
     def process(self, state: ImportGraphState):
-        md_content,images_dir_obj,images_list = self.pre_process(state)
+        md_content,images_dir_obj,images_list,md_path_obj = self.pre_process(state)
 
         image_with_content = self.get_pre_next_context(images_list,md_content,images_dir_obj)
 
-        return self.get_summary(image_with_content)
+        image_with_summary=self.get_summary(image_with_content)
 
+        image_summary_and_url_list=self.get_minio_url(image_with_summary)
 
+        md_content,new_md_path=self.update_md_file(image_summary_and_url_list, md_content, md_path_obj)
+
+        return {
+            "md_path": new_md_path,
+            "md_content": md_content
+        }
 
 if __name__ == '__main__':
     node=NodeMDImg()
