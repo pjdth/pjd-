@@ -134,22 +134,26 @@ class NodeMDImg(NodeBase):
         minio_client = get_minio_client()
         up_image_path = MinIoConfig.minio_img_dir
 
-        old_image_list = minio_client.list_objects(bucket_name=MinIoConfig.minio_bucket_name, prefix=up_image_path)
+        old_image_list = minio_client.list_objects(bucket_name=MinIoConfig.minio_bucket_name,
+                                                   prefix=up_image_path,
+                                                   recursive= True)
         # 调用api删除旧图片
-        if old_image_list:
-            # del_list里面是要删除的图片对象
-            del_list = [DeleteObject(old_image_obj.object_name) for old_image_obj in old_image_list]
 
-            errors = minio_client.remove_objects(
-                bucket_name=MinIoConfig.minio_bucket_name,
-                delete_object_list=del_list,
-            )
+        # del_list里面是要删除的图片对象
+        del_list = [DeleteObject(old_image_obj.object_name) for old_image_obj in old_image_list]
 
-            if errors:
-                for error in errors:
-                    print(f'删除图片为{error}')
+        errors = minio_client.remove_objects(
+            bucket_name=MinIoConfig.minio_bucket_name,
+            delete_object_list=del_list,
+
+        )
+
+        if errors:
+            for error in errors:
+                print(f'删除图片为{error}')
         # 准备上传图片
         image_summary_and_url_list = []
+
         for image_summary in image_with_summary:
             minio_client.fput_object(
                 bucket_name=MinIoConfig.minio_bucket_name,
