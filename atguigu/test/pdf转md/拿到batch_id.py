@@ -3,6 +3,7 @@
     @Time:2026/8/3
     @Desc:
 """
+import os
 from pathlib import Path
 
 import requests
@@ -12,12 +13,19 @@ from atguigu.tool.logger import logger
 
 
 def get_batch(pdf_path,download_path):
-    mineru_token =MineruConfig.mineru_token
-    url = "https://mineru.net/api/v4/file-urls/batch"
+    if pdf_path is None:
+        raise ValueError("请输入pdf文件路径")
     pdf_path_obj=Path(pdf_path)
-    logger.info(f"上传pdf请求开始，token:{mineru_token},url:{url}")
+    if not pdf_path_obj.exists():
+        raise FileNotFoundError("输入文件不存在")
 
-    token = mineru_token
+    if download_path is None:
+        raise ValueError("请输入文件夹路径")
+    download_path_obj=Path(download_path)
+    if not download_path_obj.exists():
+        download_path_obj.mkdir(parents=True,exist_ok=True)
+
+    token = MineruConfig.mineru_token
     url = "https://mineru.net/api/v4/file-urls/batch"
     header = {
         "Content-Type": "application/json",
@@ -25,29 +33,30 @@ def get_batch(pdf_path,download_path):
     }
     data = {
         "files": [
-            {"name": f"{pdf_path_obj.name}", "data_id": "abcd"}
+            {"name": "demo.pdf", "data_id": "abcd"}
         ],
         "model_version": "vlm"
     }
-    file_path = [str(pdf_path_obj)]
+    file_path = [pdf_path]
+    try:
+        response = requests.post(url, headers=header, json=data)
+        if response.status_code != 200:
+            raise Exception("上传pdf请求失败")
+        result = response.json()
+        if result["code"] != 0:
+            raise Exception("上传pdf获取数据失败")
+        batch_id = result["data"]["batch_id"]
+        urls = result["data"]["file_urls"]
 
-    response = requests.post(url, headers=header, json=data)
-    if response.status_code != 200:
-        raise Exception("上传pdf请求失败")
-    result = response.json()
-    print('response success. result:{}'.format(result))
-    if result["code"] != 0:
-        raise Exception("上传pdf获取数据失败")
-    batch_id = result["data"]["batch_id"]
-    urls = result["data"]["file_urls"]
-    print('batch_id:{},urls:{}'.format(batch_id, urls))
-    for i in range(0, len(urls)):
-        with open(file_path[i], 'rb') as f:
-            res_upload = requests.put(urls[i], data=f)
-            if res_upload.status_code == 200:
-                print(f"{urls[i]} upload success")
-            else:
-                print(f"{urls[i]} upload failed")
+        for i in range(0, len(urls)):
+            with open(file_path[i], 'rb') as f:
+                res_upload = requests.put(urls[i], data=f)
+                if res_upload.status_code == 200:
+                    print(f"{urls[i]} upload success")
+                else:
+                    print(f"{urls[i]} upload failed")
+    except Exception as e:
+        print(e)
     return batch_id
 
 

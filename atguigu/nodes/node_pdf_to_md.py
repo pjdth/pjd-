@@ -72,7 +72,7 @@ class NodePDFToMD(NodeBase):
 
         return batch_id
 
-    def download_md_zip_url(self, batch_id):
+    def get_md_zip_url(self, batch_id):
 
         import requests
         import time
@@ -160,7 +160,7 @@ class NodePDFToMD(NodeBase):
         batch_id = self.up_pdf(pdf_path_obj,local_dir_obj )
 
         # 第三大步：等待mineru处理完成,我们需要轮询给mineru发请求，获取一个压缩包zip的url
-        md_zip_url = self.download_md_zip_url(batch_id)
+        md_zip_url = self.get_md_zip_url(batch_id)
 
         # 第四大步：下载zip压缩文件，解压，重命名，把文件的内容读取保存state
         md_content, new_md_path_obj = self.download_pdf(md_zip_url, local_dir_obj, pdf_path_obj)
