@@ -145,7 +145,6 @@ class NodeMDImg(NodeBase):
         errors = minio_client.remove_objects(
             bucket_name=MinIoConfig.minio_bucket_name,
             delete_object_list=del_list,
-
         )
 
         if errors:
@@ -168,9 +167,9 @@ class NodeMDImg(NodeBase):
         return image_summary_and_url_list
 
     def update_md_file(self,image_summary_and_url_list, md_content, md_path_obj):
-        for image_with_summary in image_summary_and_url_list:
-            pattern = re.compile(r"!\[.*?\]\(.*?" + re.escape(image_with_summary["image_name"]) + r"\)")
-            md_content = pattern.sub(lambda m: f"![{image_with_summary['summary']}]({image_with_summary['image_url']})",
+        for image_with_summary_url in image_summary_and_url_list:
+            pattern = re.compile(r"!\[.*?\]\(.*?" + re.escape(image_with_summary_url["image_name"]) + r"\)")
+            md_content = pattern.sub(lambda m: f"![{image_with_summary_url['summary']}]({image_with_summary_url['image_url']})",
                                      md_content)
             # 保存新的md文件
         new_md_path_obj = md_path_obj.parent / (str(md_path_obj.stem) + "_new.md")
