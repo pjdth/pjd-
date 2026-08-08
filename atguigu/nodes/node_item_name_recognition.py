@@ -1,8 +1,14 @@
 import json
 
+from langchain.chat_models import init_chat_model
+from openai import api_key
+
+from atguigu.config.config import LLMConfig, MilvusConfig
 from atguigu.import_process.base import NodeBase
 from atguigu.import_process.state import ImportGraphState
+from atguigu.tool.bgem3_client_tool import get_bge_m3_embedding
 from atguigu.tool.logger import logger
+from atguigu.tool.milvus_client_tool import milvus_client, get_milvus_client
 
 
 class NodeItemNameRecognition(NodeBase):
@@ -35,7 +41,52 @@ class NodeItemNameRecognition(NodeBase):
             if len(content_str)>max_len:
                 logger.info('内容已达最大内容')
                 break
-        print(content_str)
+        # print(content_str)
+        content_str=content_str[:max_len]
+
+        llm=init_chat_model(
+            model=LLMConfig.item_model,
+            model_provider='openai',
+            api_key=LLMConfig.openai_api_key,
+            base_url=LLMConfig.openai_api_base,
+
+        )
+
+        messages=[]
+
+        res=llm.invoke(messages)
+
+        # print(res.content)
+
+        res_content=res.content
+        res_content = res_content.replace(" ", "").replace("\n", "").replace("\t", "")
+
+        milvus_client=get_milvus_client()
+        if not milvus_client:
+            logger.error('milvus_client不存在')
+            raise Exception('milvus_client不存在')
+
+        collection_name=MilvusConfig.item_name_collection
+        #建立表
+        #建立表属性
+        #建立表索引
+
+        #抽入数据前判断里面有没有重复的
+        #插入
+        embeding=get_bge_m3_embedding([])
+
+        data={
+            'item_name':1,
+            'file_title':1,
+            'dense_vector':1,
+            'sparse_vector':1,
+        }
+        res=milvus_client.insert(
+            collection_name=collection_name,
+            data=data
+        )
+
+        print(res)
         return state
 
 if __name__ == '__main__':
