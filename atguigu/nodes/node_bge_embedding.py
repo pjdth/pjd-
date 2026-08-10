@@ -4,6 +4,7 @@ from atguigu.import_process.base import NodeBase
 from atguigu.import_process.state import ImportGraphState
 from atguigu.tool.bgem3_client_tool import get_bge_m3_embedding
 from atguigu.tool.json_tool import json_tool
+from atguigu.tool.logger import logger
 
 
 class NodeBGEEmbedding(NodeBase):
@@ -20,18 +21,25 @@ class NodeBGEEmbedding(NodeBase):
 
         for i in range(0,len(chunks),3):
             chunk_list=chunks[i:i+3]
-            chunk_k_content_list=[f'{}{}' for chunk in chunk_list ]
-            embedding= get_bge_m3_embedding(chunk_k_content_list)
+            chunk_k_content_list=[f"{chunk['item_name']}\n{chunk['content']}" for chunk in chunk_list ]
+            embeddings= get_bge_m3_embedding(chunk_k_content_list)
             for idx,chunk in enumerate(chunk_list):
+                # 字段名必须与下游 node_import_milvus / node_item_name_recognition 保持一致
+                chunk["dense_vector"] = embeddings["dense"][idx]
+                chunk["sparse_vector"] = embeddings["sparse"][idx]
 
-        return state
+        return chunks
 
 if __name__=='__main__':
     node=NodeBGEEmbedding()
-    with open() as f:
+    chunks_path = r'D:\code\uv1\data\out\hak180产品安全手册\chunks_item.json'
+    with open(chunks_path, 'r', encoding='utf-8') as f:
         chunks=json.load(f)
     state={
         'chunks':chunks
     }
     res=node(state)
-    logger.info(json_tool(res))
+    # 把带向量的切片写回磁盘，供下游 node_import_milvus 读取
+    with open(chunks_path, 'w', encoding='utf-8') as f:
+        f.write(json_tool(res))
+    logger.info(f'向量化完成，已写回 {chunks_path}，共 {len(res)} 条')
