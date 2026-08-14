@@ -117,6 +117,8 @@ class NodeImportMilvus(NodeBase):
         ids = result.get("ids")
         for chunk in chunks:
             chunk["id"] = ids.pop(0)
+        with open(r'D:\code\uv1\data\out\hak180产品安全手册\chunks_id.json', 'w', encoding='utf-8') as f:
+            json.dump(chunks, f, ensure_ascii=False, indent=4)
 
         return chunks
 

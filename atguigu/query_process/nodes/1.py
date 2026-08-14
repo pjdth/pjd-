@@ -86,77 +86,41 @@ class NodeItemNameConfirm(NodeBase):
         # 看看能不能找到相似度高的item_name,如果找到了，最终的item_name才有可能确定下来
         # 准备去milvus进行混合检索，所以先去把混合检索的工具函数定义好
         embeddings = get_bge_m3_embedding(item_names)
+        print(embeddings)
         collection_name = MilvusConfig.item_name_collection
         final_search_item_names = []
         for idx, item_name in enumerate(item_names):
             dense_data = embeddings.get("dense")[idx]
             sparse_data = embeddings.get("sparse")[idx]
 
-            #               准备混合检索
-            reqs = create_reqs(
-                dense_data=dense_data,
-                sparse_data=sparse_data,
-                dense_anns_field="dense_vector",
-                sparse_anns_field="sparse_vector",
-            )
-
-            res = search_hybrid(
-                collection_name=collection_name,
-                reqs=reqs,
-                ranker=(0.8, 0.2),
-                limit=10,
-                output_fields=["item_name"]
-            )
-            print(f'搜索结果为{json_tool(res)}')
-            print(res[0])
-            search_item_names = [
-                {
-                    "original_item_name": item_name,
-                    "search_item_name": item.get("entity", {}).get("item_name", ""),
-                    "score": item.get("distance")
-                }
-                for item in res[0]
-            ]
-            final_search_item_names.extend(search_item_names)
-        return final_search_item_names
-
-    def align_item_names(self, answer, final_item_names, final_search_item_names):
-        #           对齐名字，通过分数来确定最终确认的名字或者候选的名字
-        confirm_item_names = [
-            item.get("search_item_name")
-            for item in final_search_item_names
-            if item.get("score") >= 0.85
-        ]
-        option_item_names = [
-            item.get("search_item_name")
-            for item in final_search_item_names
-            if item.get("score") >= 0.6 and item.get("score") < 0.85
-        ]
-        if confirm_item_names:
-            final_item_names = confirm_item_names
-            answer = ""
-        elif option_item_names:
-            final_item_names = []
-            answer = f"请确认你要咨询的商品是这些的哪一个？{",".join(option_item_names)}"
-        else:
-            final_item_names = []
-            answer = f"对不起，我无法识别你要咨询的商品名称,请重新提问。"
-        return answer, final_item_names
-
-    def handler_history(self, answer, final_item_names, message_id, rewritten_query, session_id):
-        #       判断answer有没有值来处理历史记录
-        #         如果answer有值，代表一定有新的历史记录（添加历史记录）
-        #         如果没有，代表不需要添加新的历史记录
-        #         不管有没有answer，我们都要给历史记录回填item_names和rewritten_query
-        if answer:
-            message_id = add_or_update_history(session_id, "assistant", answer)
-        #       回填数据，给历史记录最近的n条去做回填，还得再去找一下最近的n条历史记录。
-        #       如果有answer，我们其实回填的item_names是空列表，如果没answer那就是把final_item_names给了item_names
-        history_list = get_history_list(session_id, limit=10)
-        ids = [history.get("_id") for history in history_list]
-        if ids:
-            update_history_item_names(ids, final_item_names, rewritten_query)
-        return message_id
+            # 准备混合检索
+        #     reqs = create_reqs(
+        #         dense_data=dense_data,
+        #         sparse_data=sparse_data,
+        #         dense_anns_field="dense_vector",
+        #         sparse_anns_field="sparse_vector",
+        #     )
+        #
+        #     res = search_hybrid(
+        #         collection_name=collection_name,
+        #         reqs=reqs,
+        #         ranker=(0.8, 0.2),
+        #         limit=10,
+        #         output_fields=["item_name"]
+        #     )
+        #     print(json_tool(res))
+        #     print(res[0])
+        #     search_item_names = [
+        #         {
+        #             "original_item_name": item_name,
+        #             "search_item_name": item.get("entity", {}).get("item_name", ""),
+        #             "score": item.get("distance")
+        #         }
+        #         for item in res[0]
+        #     ]
+        #     final_search_item_names.extend(search_item_names)
+        # return final_search_item_names
+        #
 
 
     def process(self, state: QueryGraphState):
