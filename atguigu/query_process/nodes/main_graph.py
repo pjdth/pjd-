@@ -9,7 +9,7 @@ from atguigu.query_process.nodes.node_search_embedding import NodeSearchEmbeddin
 from atguigu.query_process.nodes.node_search_embedding_hyde import NodeSearchEmbeddingHyde
 from atguigu.query_process.nodes.node_web_search_mcp import NodeWebSearchMcp
 from atguigu.query_process.state import QueryGraphState
-from atguigu.tool.json_format_tool import json_format
+from atguigu.tool.json_tool import json_tool
 from atguigu.tool.logger import logger
 
 
@@ -62,4 +62,4 @@ if __name__ == '__main__':
         # "answer": "haha",
     }
     result = runner.run(init_state)
-    logger.info(json_format(result))
+    logger.info(json_tool(result))

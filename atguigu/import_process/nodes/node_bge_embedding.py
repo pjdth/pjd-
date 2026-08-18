@@ -28,11 +28,12 @@ class NodeBGEEmbedding(NodeBase):
                 chunk["dense_vector"] = embeddings["dense"][idx]
                 chunk["sparse_vector"] = embeddings["sparse"][idx]
 
-        return chunks
+        # LangGraph 节点必须返回 dict 来更新 state，不能直接返回 list
+        return {"chunks": chunks}
 
 if __name__=='__main__':
     node=NodeBGEEmbedding()
-    chunks_path = r'D:\code\uv1\data\out\hak180产品安全手册\chunks_item.json'
+    chunks_path = r'D:\code\uv1\data\hak180产品安全手册\chunks_item.json'
     with open(chunks_path, 'r', encoding='utf-8') as f:
         chunks=json.load(f)
     state={

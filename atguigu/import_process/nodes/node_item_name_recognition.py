@@ -1,4 +1,5 @@
 import json
+from pathlib import Path
 
 from langchain.chat_models import init_chat_model
 from pymilvus import DataType
@@ -19,42 +20,40 @@ class NodeItemNameRecognition(NodeBase):
 
     name = "node_item_name_recognition"
 
-    def process(self, state: ImportGraphState):
-        chunks=state.get("chunks_json")
+    def get_chunks(self, state):
+        chunks = state.get("chunks")
         # print(chunks)
-        file_title=state.get("file_title")
+        file_title = state.get("file_title")
         if not chunks:
             raise Exception("chunks为空，必须有值才能进行主体识别")
-
         if not file_title:
             raise Exception("file_title为空，必须有值才能进行主体识别")
-
-        chunks_k_list=chunks[:10]
+        chunks_k_list = chunks[:10]
         # print(chunks_k_list)
-        max_len=10000
-        content_str='\n'
-        for idx,chunk in enumerate(chunks_k_list,start=1):
-            file_title=chunk.get('file_title')
-            title=chunk.get("title")
-            content=chunk.get("content")
-            chunk_str=f"切片为{idx}文件名为{file_title}这一段标题是{title}内容是{content}"
+        max_len = 10000
+        content_str = '\n'
+        for idx, chunk in enumerate(chunks_k_list, start=1):
+            file_title = chunk.get('file_title')
+            title = chunk.get("title")
+            content = chunk.get("content")
+            chunk_str = f"切片为{idx}文件名为{file_title}这一段标题是{title}内容是{content}"
             content_str += chunk_str
-            if len(content_str)>max_len:
+            if len(content_str) > max_len:
                 logger.info('内容已达最大内容')
                 break
         # print(content_str)
-        content_str=content_str[:max_len]
+        content_str = content_str[:max_len]
+        return chunks, content_str, file_title
 
-        llm=init_chat_model(
+    def get_llm_res(self, content_str, file_title):
+        llm = init_chat_model(
             model=LLMConfig.item_model,
             model_provider='openai',
             api_key=LLMConfig.openai_api_key,
             base_url=LLMConfig.openai_api_base,
 
         )
-
         ITEM_NAME_SYSTEM_PROMPT = "你是一个专业的商品名称识别模型，请根据提供的信息，识别商品名称。"
-
         # User Prompt Template
         ITEM_NAME_USER_PROMPT_TEMPLATE = """
                         请从以下信息中识别出商品名称与型号：
@@ -68,31 +67,31 @@ class NodeItemNameRecognition(NodeBase):
                         2. 返回结果应该只包含商品名称，不要添加任何解释或其他内容；
                         3. 如果无法识别商品名称,请返回空字符串。
                         """
-        messages=[
+        messages = [
             {"role": "system", "content": ITEM_NAME_SYSTEM_PROMPT},
             {
                 "role": "user",
                 "content": ITEM_NAME_USER_PROMPT_TEMPLATE.format(file_title=file_title, context=content_str)
             }
         ]
-
-        res=llm.invoke(messages)
-
-        res_content=res.content
+        res = llm.invoke(messages)
+        res_content = res.content
         res_content = res_content.replace(" ", "").replace("\n", "").replace("\t", "")
         print(res_content)
+        return res_content
 
-        milvus_client=get_milvus_client()
+    def save_state(self, state, res_content, file_title, chunks):
+        milvus_client = get_milvus_client()
         if not milvus_client:
             logger.error('milvus_client不存在')
             raise Exception('milvus_client不存在')
 
-        collection_name=MilvusConfig.item_name_collection
-        #建立表前先判断有没有表
+        collection_name = MilvusConfig.item_name_collection
+        # 建立表前先判断有没有表
         if not milvus_client.has_collection(collection_name):
             logger.info('表不存在，正在创建表')
             # 建立表属性
-            schema=milvus_client.create_schema(
+            schema = milvus_client.create_schema(
                 auto_id=True,
             )
 
@@ -122,8 +121,8 @@ class NodeItemNameRecognition(NodeBase):
                 description="sparse vector of the item"
             )
 
-            #建立表索引
-            index_params=milvus_client.prepare_index_params()
+            # 建立表索引
+            index_params = milvus_client.prepare_index_params()
             index_params.add_index(
                 field_name="dense_vector",
                 index_name="dense_vector_index",
@@ -152,42 +151,61 @@ class NodeItemNameRecognition(NodeBase):
                 schema=schema,
                 index_params=index_params,
             )
-        #抽入数据前判断里面有没有重复的
+        # 抽入数据前判断里面有没有重复的
         milvus_client.load_collection(collection_name)
         item_name = res_content.replace("\\", "\\\\").replace("\'", "\\'").replace('\"', '\\"')
         milvus_client.delete(collection_name=collection_name, filter=f"item_name=='{item_name}'")
-        #插入
-        embedding=get_bge_m3_embedding([item_name])
+        # 插入
+        embedding = get_bge_m3_embedding([item_name])
 
-        data={
+        data = {
             "file_title": file_title,
             "item_name": item_name,
             "dense_vector": embedding["dense"][0],
             "sparse_vector": embedding["sparse"][0]
         }
-        res=milvus_client.insert(
+        res = milvus_client.insert(
             collection_name=collection_name,
             data=data
         )
 
         for chunk in chunks:
             chunk["item_name"] = item_name
+        # print(chunks)
 
-        #print(chunks)
-        #写入硬盘chunks
-        with open(r"D:\code\uv1\data\out\hak180产品安全手册\chunks_item.json", "w", encoding="utf-8") as f:
+        # 写入硬盘chunks
+        # 输出目录 = local_dir / file_title，与 node_pdf_to_md 的解压目录保持一致
+        out_dir = Path(state.get("local_dir", "")) / state.get("file_title", "")
+        out_dir.mkdir(parents=True, exist_ok=True)
+        with open(out_dir / "chunks_item.json", "w", encoding="utf-8") as f:
             f.write(json_tool(chunks))
 
         print(res)
         return state
 
+    def process(self, state: ImportGraphState):
+        # 拿取前1w的chunks用于主体识别
+        chunks, content_str, file_title = self.get_chunks(state)
+        #调用大模型进行主体识别
+        res_content = self.get_llm_res(content_str, file_title)
+        #拿到主体识别结果后，先进行向量化，再存入Milvus
+        state=self.save_state(state, res_content, file_title, chunks)
+
+        return state
+
+
+
+
+
+
+
 if __name__ == '__main__':
     node=NodeItemNameRecognition()
-    with open(r"D:\code\uv1\data\out\hak180产品安全手册\chunks.json", "r", encoding="utf-8") as f:
+    with open(r"D:\code\uv1\data\hak180产品安全手册\chunks.json", "r", encoding="utf-8") as f:
         chunks_json=f.read()
 
     state={
-        "chunks_json":json.loads(chunks_json),
+        "chunks":json.loads(chunks_json),
         'file_title':'hak180产品安全手册'
     }
     node.process(state)

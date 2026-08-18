@@ -127,7 +127,9 @@ class NodeDocumentSplit(NodeBase):
 
         fin_split_list = self.get_fin_split_list(first_split_list,file_title,md_path_obj)
 
-        return fin_split_list
+        return {
+            "chunks": fin_split_list,
+        }
 
 
 if __name__ == '__main__':

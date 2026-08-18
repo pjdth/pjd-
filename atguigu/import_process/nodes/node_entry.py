@@ -28,12 +28,14 @@ class NodeEntry(NodeBase):
             state["is_pdf_read_enabled"] = True
             state["file_title"] = file_title
             state["pdf_path"] = str(local_file_path_obj)
+            state["local_dir"] = str(local_file_path_obj.parent)
             return state
 
         elif suffix.lower() == ".md":
             state["is_md_read_enabled"] = True
             state["file_title"] = file_title
             state["md_path"] = str(local_file_path_obj)
+            state["local_dir"] = str(local_file_path_obj.parent)
             return state
         else:
             raise ValueError(f"输入文件格式错误{suffix}")

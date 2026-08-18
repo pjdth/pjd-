@@ -62,7 +62,7 @@ class NodeSearchEmbedding(NodeBase):
              }
              for item in res[0]
          ]
-         return chunks
+         return {"embedding_chunks": chunks}
 
 if __name__ == "__main__":
     init_state = {

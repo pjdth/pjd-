@@ -77,11 +77,16 @@ class NodeSearchEmbeddingHyde(NodeBase):
             output_fields=["id", "file_title", "title", "content", "item_name"],
         )
         print(res)
-        return [{
-            **r.get("entity"),
-            "score": r.get("distance"),
-            'source':'local'
-        } for r in res[0]]
+        return {
+            "hyde_embedding_chunks": [
+                {
+                    **r.get("entity"),
+                    "score": r.get("distance"),
+                    'source':'local'
+                }
+                for r in res[0]
+            ]
+        }
 if __name__ == "__main__":
     init_state = {
         "rewritten_query": "关于HAK180烫金机如何使用",

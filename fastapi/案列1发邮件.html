@@ -11,11 +11,11 @@
     <script>
         btn = document.getElementById("btn");
         btn.onclick = async function () {
-            res = await fetch("http://192.168.5.40:8000/send_message?session_id=123456")
+            res = await fetch("http://localhost:8000/send_message?session_id=123456")
             data = await res.json();
             console.log(data)
 
-            es = new EventSource("http://192.168.5.40:8000/ssestream?session_id=123456")
+            es = new EventSource("http://localhost:8000/ssestream?session_id=123456")
             es.onmessage = function (e) {
                 console.log(e.data)
                 if (e.data !== "None") {

@@ -2,13 +2,12 @@ import queue
 import time
 
 from fastapi import FastAPI, BackgroundTasks
-from queue import Queue
 
 from fastapi.params import Query
 from starlette.responses import StreamingResponse
 
 from fastapi.middleware.cors import CORSMiddleware
-
+from starlette.staticfiles import StaticFiles
 
 app = FastAPI(
     title="FastAPI",
@@ -21,6 +20,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+app.mount("/", StaticFiles(directory="."), name="static")
 queue_dict={}
 
 def make_email(session_id: str):
@@ -65,6 +65,6 @@ if __name__ == '__main__':
     import uvicorn
     uvicorn.run(
         app,
-        host="192.168.5.40",
+        host="localhost",
         port=8000,
     )

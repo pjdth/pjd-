@@ -1,4 +1,5 @@
 import json
+from pathlib import Path
 
 from pymilvus import DataType
 
@@ -117,14 +118,18 @@ class NodeImportMilvus(NodeBase):
         ids = result.get("ids")
         for chunk in chunks:
             chunk["id"] = ids.pop(0)
-        with open(r'D:\code\uv1\data\out\hak180产品安全手册\chunks_id.json', 'w', encoding='utf-8') as f:
+        # 输出目录 = local_dir / file_title，与上游节点的输出目录保持一致
+        out_dir = Path(state.get("local_dir", "")) / state.get("file_title", "")
+        out_dir.mkdir(parents=True, exist_ok=True)
+        with open(out_dir / "chunks_id.json", 'w', encoding='utf-8') as f:
             json.dump(chunks, f, ensure_ascii=False, indent=4)
 
-        return chunks
+        # LangGraph 节点必须返回 dict 来更新 state，不能直接返回 list
+        return {"chunks": chunks}
 
 if __name__ == '__main__':
     node = NodeImportMilvus()
-    with open(r'D:\code\uv1\data\out\hak180产品安全手册\chunks_item.json','r',encoding='utf-8') as f:
+    with open(r"D:\code\uv1\data\hak180产品安全手册\chunks_item.json", 'r', encoding='utf-8') as f:
         chunks=json.load(f)
     state={
         'chunks':chunks

@@ -20,7 +20,7 @@ class NodePDFToMD(NodeBase):
 
     def check_pdf(self,state:ImportGraphState):
         pdf_path=state.get("pdf_path",'')
-        load_path=state.get("local_file_path",'')
+        load_path=state.get("local_dir",state.get("local_file_path",''))
         if not pdf_path:
             raise ValueError("未输入PDF文件路径，请输入PDF文件路径")
         pdf_path_obj=Path(pdf_path)
