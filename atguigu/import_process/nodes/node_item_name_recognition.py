@@ -5,6 +5,7 @@ from langchain.chat_models import init_chat_model
 from pymilvus import DataType
 
 from atguigu.config.config import LLMConfig, MilvusConfig
+from atguigu.config.prompt import ITEM_NAME_USER_PROMPT_TEMPLATE, HOTEL_GUIDE_SUMMARY_PROMPT
 from atguigu.import_process.base import NodeBase
 from atguigu.import_process.state import ImportGraphState
 from atguigu.tool.bgem3_client_tool import get_bge_m3_embedding
@@ -55,18 +56,7 @@ class NodeItemNameRecognition(NodeBase):
         )
         ITEM_NAME_SYSTEM_PROMPT = "你是一个专业的商品名称识别模型，请根据提供的信息，识别商品名称。"
         # User Prompt Template
-        ITEM_NAME_USER_PROMPT_TEMPLATE = """
-                        请从以下信息中识别出商品名称与型号：
-                        文件名：{file_title}
 
-                        正文切片（用于辅助识别）：
-                        {context}
-
-                        要求：
-                        1. 返回内容为字符串形式，最好是带品牌、型号和名称的完整商品名称。比如：苏伯尓5000W大功率电磁炉；
-                        2. 返回结果应该只包含商品名称，不要添加任何解释或其他内容；
-                        3. 如果无法识别商品名称,请返回空字符串。
-                        """
         messages = [
             {"role": "system", "content": ITEM_NAME_SYSTEM_PROMPT},
             {
