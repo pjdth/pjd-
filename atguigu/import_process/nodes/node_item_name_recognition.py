@@ -77,7 +77,7 @@ class NodeItemNameRecognition(NodeBase):
         res = llm.invoke(messages)
         res_content = res.content
         res_content = res_content.replace(" ", "").replace("\n", "").replace("\t", "")
-        print(res_content)
+        print('______________主体识别出的内容为________________',res_content)
         return res_content
 
     def save_state(self, state, res_content, file_title, chunks):
@@ -180,7 +180,7 @@ class NodeItemNameRecognition(NodeBase):
         with open(out_dir / "chunks_item.json", "w", encoding="utf-8") as f:
             f.write(json_tool(chunks))
 
-        print(res)
+        # print(res)
         return state
 
     def process(self, state: ImportGraphState):
