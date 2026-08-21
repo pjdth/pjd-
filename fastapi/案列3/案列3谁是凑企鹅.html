@@ -1,10 +1,47 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>$Title$</title>
+    <meta charset="UTF-8">
+    <title>Title</title>
 </head>
 <body>
-$END$
+    <h2>我是一个测试页面</h2>
+    <button id="btn">按钮</button>
+    <div id="content"></div>
+    <script>
+        btn = document.getElementById("btn");
+        btn.onclick = async function (){
+            const res = await fetch("http://localhost:8000/send_message",{
+                method:"POST",
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body:JSON.stringify({
+                    "session_id":"123",
+                    "query":"你是凑企鹅，你是凑企鹅，你是谁呀"
+                })
+            })
+
+            const data = await res.json();
+            console.log(data);
+
+            es = new EventSource("http://localhost:8000/ssestream/123")
+        	//自定义事件
+            es.addEventListener("process",function (event){
+               document.getElementById("content").innerHTML += event.data + "<br>";
+            })
+
+            es.addEventListener("final",function (event){
+               document.getElementById("content").innerHTML += event.data + "<br>";
+               es.close();
+            })
+
+            es.addEventListener("error",function (event){
+               document.getElementById("content").innerHTML += event.data + "<br>";
+               es.close();
+            })
+        }
+
+    </script>
 </body>
 </html>
