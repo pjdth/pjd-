@@ -28,52 +28,6 @@ class NodeDocumentSplit(NodeBase):
         s = str(text).replace("\\n", " ").replace("\\r", " ").replace("/n", " ").replace("/r", " ")
         return re.sub(r"\s+", " ", s).strip()
 
-    @staticmethod
-    def _clean_title(raw_line, fallback="无标题"):
-        """从原始行抽取 title：先 strip，再去掉行首 BOM（\\ufeff），空则返回 fallback。
-
-        解决源文件首行是 BOM + 分隔线（如 '\\ufeff  --------------------'）时
-        被错误当作章节 title 的问题。
-        """
-        if not raw_line:
-            return fallback
-        s = raw_line.strip()
-        if s.startswith("\ufeff"):
-            s = s[1:].strip()
-        return s if s else fallback
-
-    @staticmethod
-    def _is_chapter_title(line):
-        """判断一行是否为“章节标题”，支持两种格式：
-
-        1. Markdown 标题：`# / ## / ### 等 + 空格 + 内容`（如 `# 第一章`）
-        2. 纯文本中文标题：`第[中文数字/阿拉伯数字]+[章篇部卷集] + 标题正文`
-           例：`第一章`、`第十章 白帝城`、`第二篇 朝太阳奔跑的马`
-
-        注意：只匹配“第X章/X篇/X部/X卷/X集”，避免误匹“第二遍”之类的普通行。
-        """
-        s = line.strip() if line else ""
-        if not s:
-            return False
-        # Markdown 标题：行首 1-6 个 # 后必须有空格和正文
-        if re.match(r"^#{1,6}\s+\S", s):
-            return True
-        # 纯文本章节标题：第一列必须是“第”，数字+量词
-        if re.match(
-            r"^第[零〇一二三四五六七八九十百千万两3-9]+[章篇部卷集]"
-            r"(\s+|[:：、])",
-            s,
-        ):
-            return True
-        # 也兼容纯文本章节标题正好是这一行（如 "第一章 序章 白帝城" 后面没冒号）
-        if re.match(
-            r"^第[零〇一二三四五六七八九十百千万两0-9]+[章篇部卷集]\s*\S+",
-            s,
-        ) and not re.search(r"[，。：；、？！]", s[1:20]):
-            # 只在前几个字符内没有标点时才认（避免误匹正文）
-            return True
-        return False
-
     def pre_process(self,state):
         md_path = state.get("md_path", '')
         if not md_path:
@@ -145,80 +99,55 @@ class NodeDocumentSplit(NodeBase):
                 return content_type
         return "书籍简介"
 
-    def get_first_split_list(self, md_content, file_title):
-        """按章节标题粗切文档。
-
-        优化点：
-        1. 同时支持 Markdown 标题（# / ## 等）和中文纯文本章节标题（第一章、第二篇…）。
-        2. 先一次扫描定位所有标题行（含行号），再按区间切段，避免循环里维护
-           `title_idx` 带来的边界 bug（如“最后一段标题错成第一行”）。
-        3. title 字段统一通过 `_clean_title` 清洗：strip + 去 BOM（\ufeff）。
-        4. “第一个标题之前”看作前言/封面/元数据段，title 兜底为 file_title 或“书籍简介”。
-        """
-        md_content = md_content.replace("\r\n", "\n").replace("\r", "\n")
-        md_content_list = md_content.split("\n")
-
-        code_pattern = r"^(`{3,}|~{3,})"
-        is_code = []  # 栈：进入/退出代码块
-        chapter_marks = []  # 收集标题行：(行号, 标题文本)
-
-        for idx, raw in enumerate(md_content_list):
-            line = raw.strip()
-            match = re.match(code_pattern, line)
-            # 代码块识别（保留原有逻辑）
-            if match:
-                if not is_code:
-                    is_code.append(match.group(1))
-                elif match.group(1) != is_code[-1]:
-                    is_code.append(match.group(1))
-                else:
-                    is_code.pop()
-                continue
-            # 代码块内部的行不参与章节判断
-            if is_code:
-                continue
-            if self._is_chapter_title(line):
-                chapter_marks.append((idx, self._clean_title(raw, fallback=line)))
-
-        # ---------- 切段 ----------
+    def get_first_split_list(self,md_content,file_title):
+        md_content = md_content.replace('\r\n', '\n').replace('\r', '\n')
+        # 按行分割，粗切
+        md_content_list = md_content.split('\n')
+        print(md_content_list)
         first_split_list = []
-        n_lines = len(md_content_list)
-        if not chapter_marks:
-            # 一个标题都没找到 → 整篇作为一段，避免被 splitter 硬切成 500 段
-            only_title = file_title or "书籍简介"
-            first_split_list.append({
-                "title": only_title,
-                "file_title": file_title,
-                "content": " ".join(md_content_list),
-            })
-            return first_split_list
-
-        # 第一个标题之前：前言/封面段
-        first_idx = chapter_marks[0][0]
-        if first_idx > 0:
-            pre_content = " ".join(md_content_list[:first_idx]).strip()
-            # 段首的 BOM 也一起去掉，避免污染首 chunk 的 content 开头
-            if pre_content.startswith("\ufeff"):
-                pre_content = pre_content[1:].strip()
-            if pre_content:
+        is_code=[]
+        is_block = False
+        maker = None
+        title_idx = 0
+        code_pattern = r"^(`{3,}|~{3,})"
+        title_pattern = r'^\s*#{1,6}\s+.+'
+        for idx, line in enumerate(md_content_list):
+            line = line.strip()  # 删空格
+            match = re.match(code_pattern, line)
+            # print(match)
+            # 判断两个符号是否一致，进入了代码块
+            if match:
+                # if not is_block:
+                #     maker = match.group(1)
+                #     is_block = True
+                #     logger.info(f"进入代码块")
+                # else:
+                #     if match.group(1) == maker:
+                #         is_block = False
+                #         maker = None
+                #         logger.info(f"退出代码块")
+                if match:
+                    if not is_code:
+                        is_code.append(match.group(1))
+                    elif match.group(1) != is_code[-1]:
+                        is_code.append(match.group(1))
+                    else:
+                        is_code.pop()
+            # if not is_block and re.match(title_pattern, line):
+            if not is_code and re.match(title_pattern, line):
+                line_content = ' '.join(md_content_list[title_idx:idx])
                 first_split_list.append({
-                    "title": file_title or "书籍简介",
-                    "file_title": file_title,
-                    "content": pre_content,
+                    'title': md_content_list[title_idx] if line.startswith('#') else '无标题',
+                    'file_title': file_title,
+                    'content': line_content
                 })
-
-        # 每个章节标题 → 一段
-        for k, (idx, title) in enumerate(chapter_marks):
-            end = chapter_marks[k + 1][0] if k + 1 < len(chapter_marks) else n_lines
-            seg = " ".join(md_content_list[idx:end]).strip()
-            if not seg:
-                continue
-            first_split_list.append({
-                "title": title,
-                "file_title": file_title,
-                "content": seg,
-            })
-
+                title_idx = idx
+        # 最后一段没有标题需要手动添加
+        first_split_list.append({
+            'title': md_content_list[title_idx],
+            'file_title': file_title,
+            'content': ' '.join(md_content_list[title_idx:])
+        })
         return first_split_list
 
     def get_fin_split_list(self,first_split_list,file_title,md_path_obj,meta=None):
