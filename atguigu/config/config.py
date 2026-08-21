@@ -46,3 +46,10 @@ class McpConfig:
 class RerankConfig:
     rerank_base_url = os.getenv("RERANK_BASE_URL")
     rerank_api_key = os.getenv("OPENAI_API_KEY")
+
+class TtsConfig:
+    """文字转语音配置（edge-tts 系统音色 + DashScope 声音复刻自定义音色）"""
+    dashscope_base_url = os.getenv("DASHSCOPE_BASE_URL", "https://dashscope.aliyuncs.com/api/v1")
+    # 声音复刻使用的非实时 TTS 模型（qwen-voice-enrollment 创建音色时 target_model 需与之一致）
+    clone_model = os.getenv("TTS_CLONE_MODEL", "qwen3-tts-vc-2026-01-22")
+    api_key = os.getenv("OPENAI_API_KEY")

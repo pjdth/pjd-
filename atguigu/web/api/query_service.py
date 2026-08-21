@@ -77,6 +77,17 @@ def query(background_tasks:BackgroundTasks,
         "original_query": original_query,
         "session_id": session_id
     }
+def _friendly_error_message(e):
+    """把底层异常转成用户能看懂的话，避免直接把 Milvus/网络内部错误抛给前端"""
+    s = str(e)
+    if "collection not found" in s or "CollectionNotExists" in s:
+        return "知识库还没有内容，请先通过导入服务上传书籍资料（PDF/MD），再重新提问。"
+    if "network" in s.lower() or "connection" in s.lower() or "timeout" in s.lower():
+        return "网络连接异常，请稍后重试。"
+    if "milvus" in s.lower() or "index" in s.lower():
+        return "知识库服务暂时不可用，请稍后重试。"
+    return f"服务开小差了，请稍后重试。({s[:80]})"
+
 def run_main_graph(task_id, original_query, session_id):
     try:
         init_state={
@@ -93,9 +104,10 @@ def run_main_graph(task_id, original_query, session_id):
         put_data(task_id, "progress",get_task_info(task_id))   # status=completed 时前端会清掉“...”态
     except Exception as e:
         update_task_status(task_id, TASK_STATUS_FAILED)
-        put_data(task_id, "error", {"error": str(e), "status": TASK_STATUS_FAILED})  # 与前端 'error' 监听器对齐
+        # 把错误转成友好提示推给前端（'error' 监听器会展示），不再裸抛，避免 500 刷屏
+        msg = _friendly_error_message(e)
+        put_data(task_id, "error", {"error": msg, "status": TASK_STATUS_FAILED})
         logger.error(f"Error in run_main_graph: {e}")
-        raise e
 
 @app.get('/stream/{task_id}')
 async def stream(task_id: str=Path(...,description="The task id")):

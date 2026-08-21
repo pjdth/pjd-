@@ -12,6 +12,7 @@ class QueryGraphState(TypedDict):
     message_id: str  # 消息ID
 
     original_query: str  # 用户原始问题
+    intent: str  # 意图：recommend(推荐) / detail(详情) / qa(问答)
 
     # 检索过程中的中间数据
     embedding_chunks: list  # 普通向量检索回来的切片

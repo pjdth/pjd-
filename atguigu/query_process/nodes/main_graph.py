@@ -2,7 +2,10 @@ from langgraph.constants import END
 from langgraph.graph import StateGraph
 
 from atguigu.query_process.nodes.node_answer_output import NodeAnswerOutput
+from atguigu.query_process.nodes.node_detail import NodeDetail
 from atguigu.query_process.nodes.node_item_name_confirm import NodeItemNameConfirm
+from atguigu.query_process.nodes.node_query_intent import NodeQueryIntent
+from atguigu.query_process.nodes.node_recommend import NodeRecommend
 from atguigu.query_process.nodes.node_rerank import NodeRerank
 from atguigu.query_process.nodes.node_rrf import NodeRrf
 from atguigu.query_process.nodes.node_search_embedding import NodeSearchEmbedding
@@ -21,13 +24,25 @@ class QueryMainGraphRunner:
         self.graph = None
 
     def add_nodes(self):
+        self.builder.add_node(NodeQueryIntent.name, NodeQueryIntent())
         self.builder.add_node(NodeItemNameConfirm.name, NodeItemNameConfirm())
         self.builder.add_node(NodeSearchEmbedding.name, NodeSearchEmbedding())
         self.builder.add_node(NodeSearchEmbeddingHyde.name, NodeSearchEmbeddingHyde())
         self.builder.add_node(NodeWebSearchMcp.name, NodeWebSearchMcp())
         self.builder.add_node(NodeRrf.name, NodeRrf())
         self.builder.add_node(NodeRerank.name, NodeRerank())
+        self.builder.add_node(NodeRecommend.name, NodeRecommend())
+        self.builder.add_node(NodeDetail.name, NodeDetail())
         self.builder.add_node(NodeAnswerOutput.name, NodeAnswerOutput())
+
+    def after_intent_router(self, state: QueryGraphState):
+        """按意图分流：recommend→推荐，detail→详情，其他→原有问答链路"""
+        intent = state.get("intent", "qa")
+        if intent == "recommend":
+            return NodeRecommend.name
+        if intent == "detail":
+            return NodeDetail.name
+        return NodeItemNameConfirm.name
 
     def after_item_name_confirm_router(self, state: QueryGraphState):
         answer = state.get("answer", "")
@@ -37,13 +52,16 @@ class QueryMainGraphRunner:
             return [NodeSearchEmbeddingHyde.name, NodeSearchEmbedding.name,NodeWebSearchMcp.name]
 
     def add_edges(self):
-        self.builder.set_entry_point(NodeItemNameConfirm.name)
+        self.builder.set_entry_point(NodeQueryIntent.name)
+        self.builder.add_conditional_edges(NodeQueryIntent.name, self.after_intent_router)
         self.builder.add_conditional_edges(NodeItemNameConfirm.name, self.after_item_name_confirm_router)
         self.builder.add_edge(NodeSearchEmbeddingHyde.name, NodeRrf.name)
         self.builder.add_edge(NodeSearchEmbedding.name, NodeRrf.name)
         self.builder.add_edge(NodeWebSearchMcp.name, NodeRrf.name)
         self.builder.add_edge(NodeRrf.name,NodeRerank.name)
         self.builder.add_edge(NodeRerank.name,NodeAnswerOutput.name)
+        self.builder.add_edge(NodeRecommend.name, NodeAnswerOutput.name)
+        self.builder.add_edge(NodeDetail.name, NodeAnswerOutput.name)
         self.builder.add_edge(NodeAnswerOutput.name,END)
 
     def run(self,state):

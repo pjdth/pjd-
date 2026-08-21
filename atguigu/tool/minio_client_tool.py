@@ -38,7 +38,7 @@ def get_minio_client():
             }
             minio_client.set_bucket_policy(bucket_name=bucket_name,policy=json.dumps(policy))
     except Exception as e:
-        logger.error('客户端出错',e)
+        logger.error(f'客户端出错: {e}')
         raise e
     return minio_client
 

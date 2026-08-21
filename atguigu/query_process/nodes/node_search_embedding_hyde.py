@@ -74,7 +74,8 @@ class NodeSearchEmbeddingHyde(NodeBase):
             collection_name=MilvusConfig.chunks_collection,
             limit=10,
             ranker=(0.8, 0.2),
-            output_fields=["id", "file_title", "title", "content", "item_name"],
+            output_fields=["id", "file_title", "title", "content", "item_name",
+                           "author", "category", "content_type", "entry_name", "duration"],
         )
         print(res)
         return {

@@ -38,7 +38,9 @@ class NodeAnswerOutput(NodeBase):
                 source = chunk.get("source")
                 url = chunk.get("url")
                 score = chunk.get("score")
-                content = f"[{idx}][{source}][{score}][{title}][{url}]\n{content}\n\n"
+                author = chunk.get("author", "")
+                content_type = chunk.get("content_type", "")
+                content = f"[{idx}][来源:{source}][书名:{title}][作者:{author}][类型:{content_type}][分数:{score}]\n{content}\n\n"
                 chunk_content += content
             #拿到history,也作为输入
             history = state.get("history")

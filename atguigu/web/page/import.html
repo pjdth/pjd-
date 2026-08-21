@@ -377,8 +377,116 @@
             }
         }
     </style>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Rajdhani:wght@500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+/* ============ CYBERPUNK THEME OVERRIDE ============ */
+body {
+    font-family: 'Rajdhani', 'Microsoft YaHei', sans-serif !important;
+    background-color: #0a0e17 !important;
+    background-image: linear-gradient(to right, rgba(0, 240, 255, .05) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(0, 240, 255, .05) 1px, transparent 1px),
+    radial-gradient(circle at 15% 40%, rgba(255, 42, 117, .10), transparent 55%),
+    radial-gradient(circle at 85% 60%, rgba(0, 240, 255, .10), transparent 55%);
+    background-size: 44px 44px, 44px 44px, 100% 100%, 100% 100%;
+}
+.container {
+    background: rgba(10, 14, 23, .8);
+    border: 1px solid rgba(0, 240, 255, .35);
+    box-shadow: 0 0 26px rgba(0, 240, 255, .15), inset 0 0 60px rgba(255, 42, 117, .03);
+    clip-path: polygon(0 0, calc(100% - 22px) 0, 100% 22px, 100% 100%, 0 100%);
+}
+h1 {
+    font-family: 'Orbitron', sans-serif !important;
+    color: #f0f4ff !important;
+    letter-spacing: 3px;
+    text-shadow: 2px 0 rgba(255, 42, 117, .85), -2px 0 rgba(0, 240, 255, .85);
+    animation: cyberGlitch 4s infinite;
+}
+.upload-area {
+    border: 2px dashed rgba(255, 42, 117, .55) !important;
+    background: rgba(10, 14, 23, .5) !important;
+    box-shadow: inset 0 0 30px rgba(0, 240, 255, .06) !important;
+}
+.upload-area:hover {
+    border-color: #00f0ff !important;
+    background: rgba(0, 240, 255, .06) !important;
+    box-shadow: inset 0 0 30px rgba(0, 240, 255, .15), 0 0 24px rgba(255, 42, 117, .25) !important;
+}
+.upload-icon { filter: drop-shadow(0 0 12px rgba(0, 240, 255, .7)); }
+.upload-text { font-family: 'Rajdhani', sans-serif; letter-spacing: 1px; color: #a8b4c8 !important; }
+.file-item {
+    background: rgba(10, 14, 23, .65) !important;
+    border: 1px solid rgba(0, 240, 255, .22) !important;
+    clip-path: polygon(0 0, calc(100% - 16px) 0, 100% 16px, 100% 100%, 0 100%);
+    box-shadow: 0 0 14px rgba(0, 240, 255, .07);
+}
+.file-item:hover {
+    border-color: rgba(0, 240, 255, .55) !important;
+    box-shadow: 0 10px 30px -8px #000, 0 0 20px rgba(255, 42, 117, .25) !important;
+}
+.file-name { font-family: 'Rajdhani', sans-serif; font-size: 17px; letter-spacing: .5px; color: #eef3ff !important; }
+.file-size { font-family: 'JetBrains Mono', monospace !important; color: #8fd7ff !important; }
+.status-badge { font-family: 'JetBrains Mono', monospace !important; letter-spacing: 1px; border: 1px solid transparent; }
+.status-uploading { background: linear-gradient(135deg, #ff2a75, #ff5f9e) !important; box-shadow: 0 0 14px rgba(255, 42, 117, .5); }
+.status-processing { background: linear-gradient(135deg, #00f0ff, #38bdf8) !important; box-shadow: 0 0 14px rgba(0, 240, 255, .5); }
+.status-completed { background: linear-gradient(135deg, #ccff00, #8fd100) !important; color: #0a0e17 !important; box-shadow: 0 0 14px rgba(204, 255, 0, .5); }
+.status-error { background: linear-gradient(135deg, #ff2a75, #c4145a) !important; box-shadow: 0 0 14px rgba(255, 42, 117, .55); }
+.progress-bar-container { background: rgba(10, 14, 23, .9) !important; box-shadow: inset 0 1px 4px #000 !important; }
+.progress-bar { background: linear-gradient(90deg, #00f0ff, #ff2a75) !important; box-shadow: 0 0 12px rgba(0, 240, 255, .6); }
+.progress-text { font-family: 'JetBrains Mono', monospace !important; color: #ccff00 !important; }
+.log-details { background: rgba(10, 14, 23, .7) !important; border: 1px solid rgba(0, 240, 255, .18) !important; }
+.log-details summary { font-family: 'Rajdhani', sans-serif; letter-spacing: .5px; }
+.log-details summary:hover { color: #00f0ff !important; }
+.log-list::before { background: linear-gradient(180deg, rgba(0, 240, 255, .4), rgba(255, 42, 117, .4)) !important; }
+.log-list li::before { border-color: #1e3a4a !important; background: #0a1a24 !important; }
+.log-done { color: #d7ff9a !important; }
+.log-done::before { background: #ccff00 !important; border-color: #ccff00 !important; box-shadow: 0 0 10px rgba(204, 255, 0, .7), 0 0 0 3px rgba(10, 14, 23, .9) !important; }
+.log-running { color: #baf6ff !important; }
+.log-running::before { background: #00f0ff !important; border-color: #00f0ff !important; box-shadow: 0 0 10px rgba(0, 240, 255, .8), 0 0 0 3px rgba(10, 14, 23, .9) !important; animation: pulseNode 2s infinite !important; }
+.log-duration { color: #00f0ff !important; background: rgba(0, 240, 255, .1) !important; border: 1px solid rgba(0, 240, 255, .35) !important; font-family: 'JetBrains Mono', monospace !important; }
+@keyframes cyberGlitch {
+    0%, 93%, 100% { text-shadow: 2px 0 rgba(255, 42, 117, .85), -2px 0 rgba(0, 240, 255, .85); transform: translate(0); }
+    94% { text-shadow: -4px 0 rgba(255, 42, 117, .9), 4px 0 rgba(0, 240, 255, .9); transform: translate(-2px, 1px); }
+    95% { text-shadow: 4px 0 rgba(255, 42, 117, .9), -4px 0 rgba(0, 240, 255, .9); transform: translate(2px, -1px); }
+    96% { text-shadow: -2px 0 rgba(255, 42, 117, .85), 2px 0 rgba(0, 240, 255, .85); }
+}
+/* ============ CYBER HUD LAYER + TRANSITION ============ */
+.cyber-layer { position: fixed; inset: 0; pointer-events: none; z-index: 9990; overflow: hidden; }
+.cyber-scan { position: absolute; inset: 0; background: repeating-linear-gradient(0deg, rgba(0, 240, 255, .05) 0 1px, transparent 1px 3px); animation: cyberScan 9s linear infinite; }
+@keyframes cyberScan { to { transform: translateY(100vh); } }
+.cyber-grid { position: absolute; inset: 0; background-image: linear-gradient(rgba(0, 240, 255, .06) 1px, transparent 1px), linear-gradient(90deg, rgba(0, 240, 255, .06) 1px, transparent 1px); background-size: 46px 46px; -webkit-mask-image: radial-gradient(ellipse at center, black 30%, transparent 75%); mask-image: radial-gradient(ellipse at center, black 30%, transparent 75%); }
+.cyber-hud { position: absolute; inset: 14px; border: 1px solid rgba(0, 240, 255, .12); }
+.cyber-corner { position: absolute; width: 26px; height: 26px; border: 2px solid rgba(0, 240, 255, .7); filter: drop-shadow(0 0 6px rgba(0, 240, 255, .8)); }
+.cyber-corner.tl { top: 0; left: 0; border-right: 0; border-bottom: 0; }
+.cyber-corner.tr { top: 0; right: 0; border-left: 0; border-bottom: 0; }
+.cyber-corner.bl { bottom: 0; left: 0; border-right: 0; border-top: 0; }
+.cyber-corner.br { bottom: 0; right: 0; border-left: 0; border-top: 0; }
+.cyber-tag { position: absolute; font-family: 'JetBrains Mono', monospace; font-size: 10px; color: rgba(0, 240, 255, .75); letter-spacing: 2px; }
+.cyber-tag.tl { top: 8px; left: 18px; }
+.cyber-tag.tr { top: 8px; right: 18px; }
+.cyber-ticker { position: absolute; left: 18px; right: 18px; bottom: 6px; font-family: 'JetBrains Mono', monospace; font-size: 10px; color: rgba(255, 42, 117, .6); letter-spacing: 1px; white-space: nowrap; overflow: hidden; animation: cyberTicker 20s linear infinite; }
+@keyframes cyberTicker { 0% { transform: translateX(100%); } 100% { transform: translateX(-100%); } }
+.cyber-glitch { position: fixed; inset: 0; z-index: 99999; pointer-events: none; opacity: 0; transition: opacity .2s; background: repeating-linear-gradient(0deg, rgba(0, 240, 255, .14) 0 2px, transparent 2px 5px), repeating-linear-gradient(90deg, rgba(255, 42, 117, .1) 0 3px, transparent 3px 7px); }
+.cyber-glitch.active { opacity: 1; animation: cyberNoise .12s steps(3) infinite, cyberPixelOut .65s steps(7) forwards; }
+@keyframes cyberNoise { 0% { transform: translate(0); } 33% { transform: translate(-6px, 3px); } 66% { transform: translate(5px, -4px); } 100% { transform: translate(-3px, 2px); } }
+@keyframes cyberPixelOut { 0% { clip-path: inset(0); } 12% { clip-path: inset(0 0 88% 0); } 25% { clip-path: inset(12% 0 60% 0); } 38% { clip-path: inset(40% 0 30% 0); } 50% { clip-path: inset(70% 0 8% 0); } 63% { clip-path: inset(20% 0 50% 0); } 76% { clip-path: inset(0 0 0 0); } 100% { clip-path: inset(0); opacity: 0; } }
+</style>
 </head>
 <body>
+
+<div class="cyber-layer">
+    <div class="cyber-scan"></div>
+    <div class="cyber-grid"></div>
+    <div class="cyber-hud"></div>
+    <div class="cyber-corner tl"></div><div class="cyber-corner tr"></div>
+    <div class="cyber-corner bl"></div><div class="cyber-corner br"></div>
+    <div class="cyber-tag tl">IMPORT.GATEWAY</div>
+    <div class="cyber-tag tr">UPLINK:8000</div>
+    <div class="cyber-ticker">DATA INJECTION STANDBY // PDF/MD PARSER ONLINE // KB_WRITE READY</div>
+</div>
+<div class="cyber-glitch" id="cyber-glitch"></div>
 
 <div class="container">
     <h1>📄 知识库文件导入</h1>
@@ -657,6 +765,18 @@
             }
         }, 1500);
     }
+</script>
+<script>
+    // ============ CYBER TRANSITION ============
+    function cyberGlitchFlash(duration) {
+        const g = document.getElementById('cyber-glitch');
+        if (!g) return;
+        g.classList.remove('active');
+        void g.offsetWidth;               // 重启动画
+        g.classList.add('active');
+        setTimeout(() => g.classList.remove('active'), duration || 700);
+    }
+    window.addEventListener('DOMContentLoaded', () => cyberGlitchFlash(750));
 </script>
 
 </body>

@@ -17,6 +17,7 @@ from pathlib import Path
 from atguigu.config.config import MinIoConfig
 from atguigu.import_process.main_graph import ImportMainGraphRunner
 from atguigu.tool.minio_client_tool import get_minio_client
+from atguigu.tool.mongo_client_tool import upsert_book, add_import_record, update_import_record
 from atguigu.tool.task_utils import add_running_task, add_done_task, update_task_status, TASK_STATUS_PROCESSING, \
     TASK_STATUS_COMPLETED, TASK_STATUS_FAILED, get_task_info
 
@@ -34,7 +35,33 @@ app.add_middleware(
     allow_headers=["*"],  # 允许的请求头
 )
 
-def run_main_graph(task_id: str, local_dir: str, local_file_path: str):
+def register_books_from_chunks(chunks):
+    """导入成功后，把本次导入的书籍聚合登记到书库（Mongo books 集合，持久化）"""
+    books = {}
+    for chunk in chunks or []:
+        book_name = chunk.get("book_name") or chunk.get("item_name") or ""
+        if not book_name:
+            continue
+        if book_name not in books:
+            books[book_name] = {
+                "book_name": book_name,
+                "author": chunk.get("author", ""),
+                "category": chunk.get("category", ""),
+                "entry_name": chunk.get("entry_name", ""),
+                "duration": chunk.get("duration", ""),
+                "content_type": chunk.get("content_type", "书籍简介"),
+                "file_titles": [],
+                "chunk_count": 0,
+            }
+        books[book_name]["chunk_count"] += 1
+        file_title = chunk.get("file_title", "")
+        if file_title and file_title not in books[book_name]["file_titles"]:
+            books[book_name]["file_titles"].append(file_title)
+    for book_info in books.values():
+        upsert_book(book_info)
+    return list(books.keys())
+
+def run_main_graph(task_id: str, local_dir: str, local_file_path: str, file_name: str = ""):
     try:
         init_state = {
             "local_file_path": local_file_path,
@@ -42,9 +69,18 @@ def run_main_graph(task_id: str, local_dir: str, local_file_path: str):
             "task_id": task_id,
         }
         update_task_status(task_id, TASK_STATUS_PROCESSING)
-        ImportMainGraphRunner.create_run(init_state)#执行main
+        add_import_record({
+            "task_id": task_id,
+            "file_name": file_name or Path(local_file_path).name,
+            "status": "processing",
+        })
+        final_state = ImportMainGraphRunner.create_run(init_state)#执行main
+        # 登记书库 + 更新导入记录为完成
+        book_names = register_books_from_chunks(final_state.get("chunks"))
+        update_import_record(task_id, "completed", book_names=book_names)
         update_task_status(task_id, TASK_STATUS_COMPLETED)
     except:
+        update_import_record(task_id, "failed")
         update_task_status(task_id, TASK_STATUS_FAILED)
         raise
 @app.post('/upload')
@@ -77,7 +113,7 @@ async def upload_file(
     )
     add_done_task(task_id, 'upload_file')
 
-    background_tasks.add_task(run_main_graph, task_id=task_id, local_dir=local_dir, local_file_path=local_file_path)
+    background_tasks.add_task(run_main_graph, task_id=task_id, local_dir=local_dir, local_file_path=local_file_path, file_name=file.filename)
 
     return {"task_id": task_id, "file_name": file.filename, "file_size": file.size}
 

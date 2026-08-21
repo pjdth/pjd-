@@ -1,0 +1,619 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>听书书库 // LIBRARY.SYS</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Rajdhani:wght@500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0e17;
+    --pink: #ff2a75;
+    --blue: #00f0ff;
+    --acid: #ccff00;
+    --card: rgba(10, 18, 30, .85);
+    --text: #e8ecf4;
+    --muted: #8a94a8;
+    --border: rgba(0, 240, 255, .28);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: "Rajdhani", "Microsoft YaHei", sans-serif;
+    background-color: var(--bg);
+    background-image: linear-gradient(to right, rgba(0,240,255,.05) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(0,240,255,.05) 1px, transparent 1px),
+      radial-gradient(circle at 15% 30%, rgba(255,42,117,.10), transparent 55%),
+      radial-gradient(circle at 85% 70%, rgba(0,240,255,.10), transparent 55%);
+    background-size: 44px 44px, 44px 44px, 100% 100%, 100% 100%;
+    color: var(--text); min-height: 100vh;
+  }
+  /* ===== HUD 层 ===== */
+  .cyber-layer { position: fixed; inset: 0; pointer-events: none; z-index: 9990; overflow: hidden; }
+  .cyber-scan { position: absolute; inset: 0; background: repeating-linear-gradient(0deg, rgba(0,240,255,.05) 0 1px, transparent 1px 3px); animation: cyberScan 9s linear infinite; }
+  @keyframes cyberScan { to { transform: translateY(100vh); } }
+  .cyber-grid { position: absolute; inset: 0; background-image: linear-gradient(rgba(0,240,255,.06) 1px, transparent 1px), linear-gradient(90deg, rgba(0,240,255,.06) 1px, transparent 1px); background-size: 46px 46px; -webkit-mask-image: radial-gradient(ellipse at center, black 30%, transparent 75%); mask-image: radial-gradient(ellipse at center, black 30%, transparent 75%); }
+  .cyber-hud { position: absolute; inset: 14px; border: 1px solid rgba(0,240,255,.12); }
+  .cyber-corner { position: absolute; width: 26px; height: 26px; border: 2px solid rgba(0,240,255,.7); filter: drop-shadow(0 0 6px rgba(0,240,255,.8)); }
+  .cyber-corner.tl { top: 0; left: 0; border-right: 0; border-bottom: 0; }
+  .cyber-corner.tr { top: 0; right: 0; border-left: 0; border-bottom: 0; }
+  .cyber-corner.bl { bottom: 0; left: 0; border-right: 0; border-top: 0; }
+  .cyber-corner.br { bottom: 0; right: 0; border-left: 0; border-top: 0; }
+  .cyber-tag { position: absolute; font-family: 'JetBrains Mono', monospace; font-size: 10px; color: rgba(0,240,255,.75); letter-spacing: 2px; }
+  .cyber-tag.tl { top: 8px; left: 18px; }
+  .cyber-tag.tr { top: 8px; right: 18px; }
+  .cyber-ticker { position: absolute; left: 18px; right: 18px; bottom: 6px; font-family: 'JetBrains Mono', monospace; font-size: 10px; color: rgba(255,42,117,.6); letter-spacing: 1px; white-space: nowrap; overflow: hidden; animation: cyberTicker 22s linear infinite; }
+  @keyframes cyberTicker { 0% { transform: translateX(100%); } 100% { transform: translateX(-100%); } }
+  .cyber-glitch { position: fixed; inset: 0; z-index: 99999; pointer-events: none; opacity: 0; transition: opacity .2s; background: repeating-linear-gradient(0deg, rgba(0,240,255,.14) 0 2px, transparent 2px 5px), repeating-linear-gradient(90deg, rgba(255,42,117,.1) 0 3px, transparent 3px 7px); }
+  .cyber-glitch.active { opacity: 1; animation: cyberNoise .12s steps(3) infinite, cyberPixelOut .65s steps(7) forwards; }
+  @keyframes cyberNoise { 0% { transform: translate(0); } 33% { transform: translate(-6px,3px); } 66% { transform: translate(5px,-4px); } 100% { transform: translate(-3px,2px); } }
+  @keyframes cyberPixelOut { 0% { clip-path: inset(0); } 12% { clip-path: inset(0 0 88% 0); } 25% { clip-path: inset(12% 0 60% 0); } 38% { clip-path: inset(40% 0 30% 0); } 50% { clip-path: inset(70% 0 8% 0); } 63% { clip-path: inset(20% 0 50% 0); } 76% { clip-path: inset(0 0 0 0); } 100% { clip-path: inset(0); opacity: 0; } }
+
+  /* ===== 头部 ===== */
+  .header {
+    background: linear-gradient(135deg, rgba(0,240,255,.12), rgba(255,42,117,.12));
+    border-bottom: 1px solid var(--border);
+    padding: 18px 34px; display: flex; align-items: center; justify-content: space-between;
+    box-shadow: 0 0 24px rgba(0,240,255,.08), inset 0 0 40px rgba(255,42,117,.04);
+  }
+  .header h1 {
+    font-family: 'Orbitron', sans-serif; font-size: 24px; letter-spacing: 4px; color: #f0f4ff;
+    text-shadow: 2px 0 rgba(255,42,117,.85), -2px 0 rgba(0,240,255,.85);
+    animation: glitch 4s infinite;
+  }
+  .header .sub { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--muted); letter-spacing: 2px; margin-top: 6px; }
+  .header .refresh {
+    font-family: 'Rajdhani', sans-serif; font-weight: 700; letter-spacing: 1px; font-size: 14px;
+    background: linear-gradient(135deg, var(--blue), var(--pink)); color: #081018;
+    border: none; padding: 9px 18px; border-radius: 4px; cursor: pointer;
+    box-shadow: 0 0 18px rgba(255,42,117,.45); clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 0 100%);
+  }
+  .header .refresh:hover { filter: brightness(1.15); }
+  @keyframes glitch {
+    0%, 93%, 100% { text-shadow: 2px 0 rgba(255,42,117,.85), -2px 0 rgba(0,240,255,.85); transform: translate(0); }
+    94% { text-shadow: -4px 0 rgba(255,42,117,.9), 4px 0 rgba(0,240,255,.9); transform: translate(-2px,1px); }
+    95% { text-shadow: 4px 0 rgba(255,42,117,.9), -4px 0 rgba(0,240,255,.9); transform: translate(2px,-1px); }
+    96% { text-shadow: -2px 0 rgba(255,42,117,.85), 2px 0 rgba(0,240,255,.85); }
+  }
+  .container { max-width: 1200px; margin: 26px auto; padding: 0 22px; }
+
+  /* ===== Tab ===== */
+  .tabs { display: flex; gap: 10px; margin-bottom: 22px; }
+  .tab {
+    font-family: 'Rajdhani', sans-serif; font-weight: 700; letter-spacing: 2px;
+    padding: 10px 24px; border-radius: 4px; border: 1px solid var(--border);
+    background: var(--card); cursor: pointer; font-size: 15px; color: var(--muted);
+    clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 0 100%);
+  }
+  .tab.active {
+    background: linear-gradient(135deg, rgba(0,240,255,.25), rgba(255,42,117,.25));
+    color: #fff; border-color: rgba(0,240,255,.6);
+    box-shadow: 0 0 16px rgba(0,240,255,.25);
+  }
+
+  /* ===== 书库卡片 ===== */
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(270px, 1fr)); gap: 18px; }
+  .book-card {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 8px; padding: 18px 20px;
+    clip-path: polygon(0 0, calc(100% - 18px) 0, 100% 18px, 100% 100%, 0 100%);
+    box-shadow: 0 0 14px rgba(0,240,255,.08), inset 0 0 30px rgba(255,42,117,.03);
+    transition: transform .15s, box-shadow .15s;
+  }
+  .book-card:hover { transform: translateY(-4px); box-shadow: 0 0 26px rgba(0,240,255,.22), 0 0 40px rgba(255,42,117,.12); }
+  .book-name {
+    font-family: 'Orbitron', sans-serif; font-size: 17px; margin-bottom: 6px; letter-spacing: 1px;
+    text-shadow: 1px 0 rgba(255,42,117,.5), -1px 0 rgba(0,240,255,.5);
+  }
+  .book-author { color: var(--muted); font-size: 14px; margin-bottom: 10px; letter-spacing: .5px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+  .chip { background: rgba(0,240,255,.1); color: var(--blue); font-size: 12px; padding: 3px 10px; border-radius: 2px; border: 1px solid rgba(0,240,255,.3); font-family: 'JetBrains Mono', monospace; }
+  .chip.gray { background: rgba(255,42,117,.08); color: #ff8ab2; border-color: rgba(255,42,117,.3); }
+  .chip.acid { background: rgba(204,255,0,.08); color: var(--acid); border-color: rgba(204,255,0,.3); }
+  .meta-line { font-size: 13px; color: var(--muted); margin-bottom: 12px; font-family: 'JetBrains Mono', monospace; }
+  .card-actions { display: flex; gap: 8px; }
+  .btn { border: none; padding: 8px 14px; cursor: pointer; font-size: 13px; font-family: 'Rajdhani', sans-serif; font-weight: 700; letter-spacing: 1px; border-radius: 4px; clip-path: polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 0 100%); }
+  .btn-primary { background: linear-gradient(135deg, var(--blue), var(--pink)); color: #081018; box-shadow: 0 0 14px rgba(255,42,117,.4); }
+  .btn-primary:hover { filter: brightness(1.15); }
+  .btn-outline { background: transparent; color: var(--blue); border: 1px solid rgba(0,240,255,.5); }
+  .btn-outline:hover { background: rgba(0,240,255,.1); }
+  .btn-sm { padding: 5px 11px; font-size: 12px; }
+  .empty { text-align: center; color: var(--muted); padding: 60px 20px; font-size: 15px; font-family: 'JetBrains Mono', monospace; }
+  .empty .big { font-size: 40px; margin-bottom: 12px; }
+
+  /* ===== 弹窗 ===== */
+  .modal-mask { position: fixed; inset: 0; background: rgba(5,8,15,.7); display: none; align-items: flex-start; justify-content: center; padding: 40px 16px; z-index: 100; overflow-y: auto; backdrop-filter: blur(4px); }
+  .modal-mask.show { display: flex; }
+  .modal {
+    background: rgba(10,18,30,.96); border: 1px solid var(--border); border-radius: 8px; max-width: 760px; width: 100%; padding: 24px;
+    clip-path: polygon(0 0, calc(100% - 20px) 0, 100% 20px, 100% 100%, 0 100%);
+    box-shadow: 0 0 30px rgba(0,240,255,.18), inset 0 0 50px rgba(255,42,117,.04);
+  }
+  .modal-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+  .modal-head h2 { font-family: 'Orbitron', sans-serif; font-size: 19px; letter-spacing: 2px; text-shadow: 1px 0 rgba(255,42,117,.6), -1px 0 rgba(0,240,255,.6); }
+  .modal-close { background: none; border: 1px solid rgba(0,240,255,.4); color: var(--blue); font-size: 18px; cursor: pointer; width: 32px; height: 32px; border-radius: 4px; }
+  .modal-close:hover { background: rgba(0,240,255,.15); }
+  .section-item { border: 1px solid rgba(0,240,255,.22); border-radius: 6px; padding: 12px 14px; margin-bottom: 10px; background: rgba(8,14,24,.6); clip-path: polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 0 100%); }
+  .section-item .row1 { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+  .section-item .title { font-weight: 700; font-size: 14px; letter-spacing: .5px; }
+  .section-item .preview { font-size: 13px; color: var(--muted); line-height: 1.5; }
+
+  /* ===== TTS 面板 ===== */
+  .tts-panel { border: 1px solid rgba(255,42,117,.35); border-radius: 6px; padding: 16px; margin-top: 16px; background: rgba(20,10,20,.4); box-shadow: inset 0 0 30px rgba(255,42,117,.05); }
+  .tts-row { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; flex-wrap: wrap; }
+  .tts-row label { font-size: 13px; color: var(--muted); min-width: 52px; font-family: 'JetBrains Mono', monospace; }
+  .tts-row select { flex: 1; min-width: 140px; padding: 7px 8px; background: #0a0e17; color: var(--text); border: 1px solid rgba(0,240,255,.35); border-radius: 4px; font-family: 'Rajdhani', sans-serif; }
+  .tts-row input[type=range] { flex: 1; min-width: 140px; accent-color: var(--blue); }
+  .tts-val { font-size: 12px; color: var(--acid); min-width: 52px; text-align: right; font-family: 'JetBrains Mono', monospace; }
+  .player-row { display: flex; align-items: center; gap: 12px; margin-top: 6px; }
+  audio { flex: 1; }
+
+  /* ===== 导入记录表 ===== */
+  table { width: 100%; border-collapse: collapse; background: var(--card); border-radius: 8px; overflow: hidden; border: 1px solid var(--border); }
+  th, td { padding: 12px 16px; text-align: left; font-size: 14px; border-bottom: 1px solid rgba(0,240,255,.12); }
+  th { background: rgba(0,240,255,.08); color: var(--blue); font-family: 'JetBrains Mono', monospace; font-size: 12px; letter-spacing: 1px; }
+  td { font-family: 'Rajdhani', sans-serif; }
+  .status { padding: 3px 10px; border-radius: 2px; font-size: 12px; font-family: 'JetBrains Mono', monospace; border: 1px solid transparent; }
+  .status.completed { background: rgba(204,255,0,.1); color: var(--acid); border-color: rgba(204,255,0,.4); }
+  .status.processing { background: rgba(0,240,255,.1); color: var(--blue); border-color: rgba(0,240,255,.4); animation: pulseText 1.5s infinite; }
+  .status.failed { background: rgba(255,42,117,.1); color: #ff8ab2; border-color: rgba(255,42,117,.4); }
+  @keyframes pulseText { 50% { opacity: .55; } }
+  .loading { text-align: center; color: var(--muted); padding: 30px; font-family: 'JetBrains Mono', monospace; }
+
+  /* ===== 阅读器 ===== */
+  .reader-modal { max-width: 1080px; height: 86vh; display: flex; flex-direction: column; }
+  .reader-body { flex: 1; display: flex; min-height: 0; border: 1px solid rgba(0,240,255,.15); border-radius: 6px; overflow: hidden; }
+  .reader-toc { width: 250px; flex-shrink: 0; overflow-y: auto; border-right: 1px solid rgba(0,240,255,.15); background: rgba(6,12,22,.7); padding: 10px 8px; }
+  .toc-item { display: block; width: 100%; text-align: left; padding: 8px 10px; margin-bottom: 4px; font-size: 13px; color: var(--muted); background: none; border: 1px solid transparent; border-radius: 4px; cursor: pointer; font-family: 'Rajdhani', sans-serif; letter-spacing: .5px; }
+  .toc-item:hover { color: var(--blue); border-color: rgba(0,240,255,.3); }
+  .toc-item.active { color: #081018; background: linear-gradient(135deg, var(--blue), var(--pink)); font-weight: 700; box-shadow: 0 0 12px rgba(0,240,255,.3); }
+  .toc-item .toc-idx { color: var(--acid); font-family: 'JetBrains Mono', monospace; font-size: 11px; margin-right: 6px; }
+  .reader-main { flex: 1; overflow-y: auto; padding: 26px 38px; background: rgba(8,14,24,.5); }
+  .reader-page-label { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--acid); letter-spacing: 2px; margin-bottom: 12px; }
+  .reader-title { font-family: 'Orbitron', sans-serif; font-size: 20px; letter-spacing: 1px; margin-bottom: 6px; text-shadow: 1px 0 rgba(255,42,117,.5), -1px 0 rgba(0,240,255,.5); }
+  .reader-sub { font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--muted); margin-bottom: 18px; letter-spacing: 1px; }
+  .reader-para { font-family: "Rajdhani", "Microsoft YaHei", sans-serif; font-size: 17px; line-height: 1.9; color: var(--text); margin-bottom: 14px; text-align: justify; letter-spacing: .4px; }
+  .reader-empty { color: var(--muted); text-align: center; padding: 60px 0; font-family: 'JetBrains Mono', monospace; }
+  .reader-bar { display: flex; align-items: center; gap: 10px; padding: 12px 14px 8px; flex-wrap: wrap; border-top: 1px solid rgba(255,42,117,.25); background: rgba(14,8,18,.55); }
+  .reader-bar select { padding: 6px 8px; background: #0a0e17; color: var(--text); border: 1px solid rgba(0,240,255,.35); border-radius: 4px; font-family: 'Rajdhani', sans-serif; font-size: 13px; }
+  .reader-bar .page-ind { font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--blue); min-width: 72px; text-align: center; }
+  .reader-progress { flex: 1; min-width: 140px; display: flex; align-items: center; gap: 8px; }
+  .reader-progress input[type=range] { flex: 1; accent-color: var(--pink); }
+  .reader-time { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--muted); min-width: 86px; }
+  .reader-bar .btn { padding: 6px 12px; font-size: 12px; }
+  .voice-pop { width: 100%; margin-top: 6px; border: 1px solid rgba(0,240,255,.25); border-radius: 6px; padding: 12px; background: rgba(6,12,22,.9); display: none; }
+  .voice-pop .vp-row { display: flex; gap: 8px; margin-bottom: 8px; align-items: center; }
+  .voice-pop input[type=text] { flex: 1; padding: 7px 8px; background: #0a0e17; color: var(--text); border: 1px solid rgba(0,240,255,.35); border-radius: 4px; font-family: 'Rajdhani', sans-serif; }
+  .voice-pop input[type=file] { flex: 1; color: var(--text); font-family: 'JetBrains Mono', monospace; font-size: 11px; }
+</style>
+</head>
+<body>
+
+<div class="cyber-layer">
+  <div class="cyber-scan"></div>
+  <div class="cyber-grid"></div>
+  <div class="cyber-hud"></div>
+  <div class="cyber-corner tl"></div><div class="cyber-corner tr"></div>
+  <div class="cyber-corner bl"></div><div class="cyber-corner br"></div>
+  <div class="cyber-tag tl">LIBRARY.SYS v2.077</div>
+  <div class="cyber-tag tr">TTS.UPLINK:8002</div>
+  <div class="cyber-ticker">NEURAL AUDIO SYNTH ONLINE // VOICE ENGINE READY // KB_SYNC VERIFIED</div>
+</div>
+<div class="cyber-glitch" id="cyber-glitch"></div>
+
+<div class="header">
+  <div>
+    <h1>📚 听书书库 // LIBRARY</h1>
+    <div class="sub">MANAGE IMPORTED BOOKS // TEXT-TO-SPEECH ENGINE</div>
+  </div>
+  <button class="refresh" onclick="loadAll()">⟳ SYNC</button>
+</div>
+
+<div class="container">
+  <div class="tabs">
+    <div class="tab active" data-tab="library" onclick="switchTab('library')">📚 书库</div>
+    <div class="tab" data-tab="records" onclick="switchTab('records')">📡 导入记录</div>
+  </div>
+
+  <div id="panel-library">
+    <div id="book-loading" class="loading">LOADING LIBRARY...</div>
+    <div id="book-grid" class="grid"></div>
+    <div id="book-empty" class="empty" style="display:none;">
+      <div class="big">📭</div>
+      LIBRARY EMPTY // 书库为空<br><br>
+      请先在<b>导入页面</b>上传书籍资料（PDF / MD），导入完成后书籍会自动出现在这里。
+    </div>
+  </div>
+
+  <div id="panel-records" style="display:none;">
+    <table>
+      <thead><tr><th>FILE // 文件名</th><th>STATUS</th><th>BOOKS</th><th>TIME</th></tr></thead>
+      <tbody id="records-body"><tr><td colspan="4" class="loading">LOADING...</td></tr></tbody>
+    </table>
+  </div>
+</div>
+
+<div class="modal-mask" id="book-modal">
+  <div class="modal reader-modal">
+    <div class="modal-head">
+      <h2 id="modal-title">READER // 阅读器</h2>
+      <button class="modal-close" onclick="closeModal()">×</button>
+    </div>
+    <div class="reader-body">
+      <div class="reader-toc" id="reader-toc"></div>
+      <div class="reader-main" id="reader-main">
+        <div id="reader-loading" class="reader-empty">LOADING BOOK...</div>
+      </div>
+    </div>
+    <div class="reader-bar">
+      <button class="btn btn-outline" onclick="prevPage()">◀ 上一页</button>
+      <span class="page-ind" id="page-ind">- / -</span>
+      <button class="btn btn-outline" onclick="nextPage()">下一页 ▶</button>
+      <button class="btn btn-primary" id="play-btn" onclick="togglePlay()">▶ 播放</button>
+      <div class="reader-progress">
+        <input type="range" id="play-progress" min="0" max="1000" value="0" oninput="seekTo(this.value)">
+        <span class="reader-time" id="play-time">0:00 / 0:00</span>
+      </div>
+      <select id="speed-sel" onchange="onSpeedChange()">
+        <option value="0.75">0.75x</option>
+        <option value="1" selected>1.0x</option>
+        <option value="1.25">1.25x</option>
+        <option value="1.5">1.5x</option>
+        <option value="2">2.0x</option>
+      </select>
+      <select id="tts-voice" onchange="onVoiceChange()"></select>
+      <button class="btn btn-outline" onclick="toggleVoicePop()">🎤 我的声音</button>
+      <div class="voice-pop" id="voice-pop">
+        <div class="vp-row">
+          <input type="text" id="voice-name" placeholder="音色名称（例如：我的声音）" maxlength="30">
+          <button class="btn btn-primary" id="voice-upload-btn" onclick="uploadVoice()">⬆ 复刻</button>
+        </div>
+        <div class="vp-row">
+          <input type="file" id="voice-file" accept=".mp3,.wav,audio/mpeg,audio/wav">
+        </div>
+        <div class="vp-row" style="font-size:11px;color:var(--muted);font-family:'JetBrains Mono',monospace;">
+          提示：上传 10~60 秒清晰无噪音的中文朗读 mp3，即可用你的声音朗读
+        </div>
+      </div>
+    </div>
+    <audio id="tts-audio" style="display:none;"></audio>
+  </div>
+</div>
+
+<script>
+const API_BASE = 'http://127.0.0.1:8002';
+
+// ============ CYBER TRANSITION ============
+function cyberFlash(duration) {
+  const g = document.getElementById('cyber-glitch');
+  if (!g) return;
+  g.classList.remove('active'); void g.offsetWidth;
+  g.classList.add('active');
+  setTimeout(() => g.classList.remove('active'), duration || 700);
+}
+
+// ============ 书库 ============
+async function loadBooks() {
+  const loading = document.getElementById('book-loading');
+  const grid = document.getElementById('book-grid');
+  const empty = document.getElementById('book-empty');
+  loading.style.display = 'block'; grid.innerHTML = ''; empty.style.display = 'none';
+  try {
+    const res = await fetch(`${API_BASE}/api/books`);
+    const data = await res.json();
+    const books = data.items || [];
+    loading.style.display = 'none';
+    if (!books.length) { empty.style.display = 'block'; return; }
+    grid.innerHTML = books.map(b => `
+      <div class="book-card">
+        <div class="book-name">《${escapeHtml(b.book_name)}》</div>
+        <div class="book-author">AUTHOR // ${escapeHtml(b.author || 'UNKNOWN')}</div>
+        <div class="chips">
+          ${b.category ? `<span class="chip">${escapeHtml(b.category)}</span>` : ''}
+          ${b.duration ? `<span class="chip gray">⏱ ${escapeHtml(b.duration)}</span>` : ''}
+          <span class="chip acid">${b.chunk_count || 0} CHUNKS</span>
+        </div>
+        <div class="meta-line">TYPE: ${escapeHtml(b.content_type || '书籍简介')}</div>
+        <div class="card-actions">
+          <button class="btn btn-primary btn-sm" onclick="openBook('${encodeURIComponent(b.book_name)}')">📖 DETAIL</button>
+          <button class="btn btn-outline btn-sm" onclick="openBook('${encodeURIComponent(b.book_name)}')">🔊 TTS</button>
+        </div>
+      </div>`).join('');
+  } catch (e) {
+    loading.style.display = 'none';
+    empty.innerHTML = `<div class="big">⚠️</div>无法连接书库服务（${API_BASE}）<br>请确认 library_service 已启动`;
+    empty.style.display = 'block';
+  }
+}
+
+// ============ 阅读器（打开书籍 → 翻页 / 目录 / 进度记忆 + 听书） ============
+let currentBook = null;
+let currentVoice = 'zh-CN-XiaoxiaoNeural';
+let readerSections = [];   // 全书切片（每片 = 一页）
+let readerPage = 0;        // 当前页（0-based）
+let isReading = false;     // 正在朗读
+
+const audioEl = () => document.getElementById('tts-audio');
+const playBtn = () => document.getElementById('play-btn');
+
+async function openBook(bookName) {
+  currentBook = decodeURIComponent(bookName);
+  cyberFlash(320);
+  document.getElementById('modal-title').textContent = `《${currentBook}》 // READER`;
+  document.getElementById('reader-toc').innerHTML = '';
+  document.getElementById('reader-main').innerHTML = '<div class="reader-empty">LOADING BOOK...</div>';
+  document.getElementById('book-modal').classList.add('show');
+  stopPlay(true);
+  try {
+    const res = await fetch(`${API_BASE}/api/books/${encodeURIComponent(currentBook)}/sections`);
+    const data = await res.json();
+    readerSections = data.sections || [];
+    if (!readerSections.length) {
+      document.getElementById('reader-main').innerHTML = '<div class="reader-empty">NO SECTIONS // 本书暂无内容</div>';
+      renderToc();
+      return;
+    }
+    readerPage = loadProgress() || 0;               // 恢复上次阅读进度
+    if (readerPage >= readerSections.length) readerPage = 0;
+    renderToc();
+    renderPage();
+    loadVoices();
+  } catch (e) {
+    document.getElementById('reader-main').innerHTML = `<div class="reader-empty">LOAD FAILED // ${escapeHtml(String(e))}</div>`;
+  }
+}
+
+function renderToc() {
+  const toc = document.getElementById('reader-toc');
+  toc.innerHTML = readerSections.map((s, i) => `
+    <button class="toc-item ${i === readerPage ? 'active' : ''}" onclick="gotoPage(${i})">
+      <span class="toc-idx">${String(i + 1).padStart(2, '0')}</span>${escapeHtml(s.title || ('第' + (i + 1) + '节'))}
+    </button>`).join('');
+}
+
+function renderPage() {
+  if (!readerSections.length) return;
+  const s = readerSections[readerPage];
+  const paras = splitSentences(s.content || '').map(p => `<p class="reader-para">${escapeHtml(p)}</p>`).join('');
+  document.getElementById('reader-main').innerHTML = `
+    <div class="reader-page-label">PAGE ${readerPage + 1} / ${readerSections.length} // ${escapeHtml(s.content_type || '')}</div>
+    <div class="reader-title">${escapeHtml(s.title || '无标题')}</div>
+    <div class="reader-sub">${escapeHtml(currentBook)} // ${escapeHtml(s.content_type || '')}</div>
+    ${paras || '<div class="reader-empty">（本页暂无正文内容）</div>'}`;
+  document.getElementById('reader-main').scrollTop = 0;
+  document.getElementById('page-ind').textContent = `${readerPage + 1} / ${readerSections.length}`;
+  renderToc();
+  saveProgress();
+}
+
+/* 按句切分（中文标点），让无换行的正文阅读起来有段落感 */
+function splitSentences(text) {
+  return (text.match(/[^。！？；!?;]+[。！？；!?;]?/g) || []).map(s => s.trim()).filter(s => s.length > 1);
+}
+
+// ---- 翻页（播放中翻页则自动连读新页） ----
+function gotoPage(i) {
+  if (i < 0 || i >= readerSections.length) return;
+  const playing = isReading;
+  stopPlay(true);
+  readerPage = i;
+  renderPage();
+  if (playing) playCurrent();
+}
+function nextPage() { gotoPage(readerPage + 1); }
+function prevPage() { gotoPage(readerPage - 1); }
+
+// ---- 进度记忆（localStorage 按书持久化，刷新后回到上次页） ----
+function progressKey() { return 'reader_progress_' + currentBook; }
+function saveProgress() {
+  try { localStorage.setItem(progressKey(), JSON.stringify({ page: readerPage, ts: Date.now() })); } catch (e) {}
+}
+function loadProgress() {
+  try {
+    const p = JSON.parse(localStorage.getItem(progressKey()) || '{}');
+    return Number(p.page) || 0;
+  } catch (e) { return 0; }
+}
+
+async function loadVoices() {
+  const sel = document.getElementById('tts-voice');
+  if (!sel) return;
+  let systemVoices = [], customVoices = [];
+  try {
+    const [r1, r2] = await Promise.all([
+      fetch(`${API_BASE}/api/tts/voices`),
+      fetch(`${API_BASE}/api/tts/custom-voices`)
+    ]);
+    systemVoices = (await r1.json()).items || [];
+    customVoices = (await r2.json()).items || [];
+  } catch (e) { /* ignore */ }
+  let html = '';
+  if (customVoices.length) {
+    html += `<optgroup label="🎤 MY VOICES // 我的音色">` +
+      customVoices.map(v => `<option value="${v.voice}">🎤 ${v.name}</option>`).join('') +
+      `</optgroup>`;
+  }
+  html += `<optgroup label="SYS VOICES // 系统音色">` +
+    systemVoices.map(v => `<option value="${v.id}">${v.name}</option>`).join('') +
+    `</optgroup>`;
+  sel.innerHTML = html;
+  if (currentVoice && Array.from(sel.options).some(o => o.value === currentVoice)) {
+    sel.value = currentVoice;
+  } else {
+    sel.selectedIndex = 0;
+  }
+  onVoiceChange();
+}
+
+function onVoiceChange() {
+  const sel = document.getElementById('tts-voice');
+  if (sel && sel.value.indexOf('custom:') === 0) {
+    document.getElementById('speed-sel').value = '1';  // 复刻音色暂不支持变速参数，重置
+  }
+}
+
+// ---- 我的声音（上传 mp3 复刻） ----
+function toggleVoicePop() {
+  const p = document.getElementById('voice-pop');
+  p.style.display = p.style.display === 'block' ? 'none' : 'block';
+}
+
+async function uploadVoice() {
+  const fileInput = document.getElementById('voice-file');
+  const nameInput = document.getElementById('voice-name');
+  const file = fileInput && fileInput.files && fileInput.files[0];
+  const name = (nameInput.value || '').trim();
+  if (!file) { alert('请先选择一段 mp3 / wav 声音文件（10~60 秒、清晰无噪音）'); return; }
+  if (!name) { alert('请填写音色名称'); return; }
+  const btn = document.getElementById('voice-upload-btn');
+  btn.disabled = true; const old = btn.textContent; btn.textContent = '⏳ 复刻中...';
+  try {
+    const fd = new FormData();
+    fd.append('file', file);
+    fd.append('name', name);
+    const res = await fetch(`${API_BASE}/api/tts/upload-voice`, { method: 'POST', body: fd });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) { alert('复刻失败：' + (data.detail || res.status)); return; }
+    alert(`✅ 声音复刻成功！音色「${data.name}」已保存，可以朗读了。`);
+    currentVoice = data.voice;
+    await loadVoices();
+  } catch (e) { alert('复刻失败：' + e); }
+  finally { btn.disabled = false; btn.textContent = old; }
+}
+
+// ---- 听书：播放 / 暂停 / 调速 / 进度同步 ----
+function playCurrent() {
+  const s = readerSections[readerPage];
+  if (!s || !s.content || !s.content.trim()) { alert('当前页没有可朗读的内容'); return; }
+  const voice = (document.getElementById('tts-voice') || {}).value || currentVoice;
+  setPlayBtn('⏳ 合成中...', true);
+  fetch(`${API_BASE}/api/books/${encodeURIComponent(currentBook)}/tts`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ text: s.content, voice, rate: 0, pitch: 0, volume: 0 })
+  })
+    .then(async res => {
+      if (!res.ok) { const err = await res.json().catch(() => ({})); throw new Error(err.detail || res.status); }
+      const blob = await res.blob();
+      const a = audioEl();
+      a.src = URL.createObjectURL(blob);
+      a.playbackRate = Number((document.getElementById('speed-sel') || {}).value || 1);
+      return a.play().then(() => {
+        isReading = true;
+        setPlayBtn('⏸ 暂停', false);
+      }).catch(e => { throw new Error('播放失败：' + e); });
+    })
+    .catch(e => { alert(e.message || String(e)); setPlayBtn('▶ 播放', false); });
+}
+
+function togglePlay() {
+  const a = audioEl();
+  if (!a.src) { playCurrent(); return; }
+  if (a.paused) {
+    a.play().then(() => { isReading = true; setPlayBtn('⏸ 暂停', false); });
+  } else {
+    a.pause(); isReading = false; setPlayBtn('▶ 播放', false);
+  }
+}
+
+function stopPlay(silent) {
+  const a = audioEl();
+  if (a) { a.pause(); a.currentTime = 0; a.removeAttribute('src'); }
+  isReading = false;
+  if (!silent) {
+    setPlayBtn('▶ 播放', false);
+    const prog = document.getElementById('play-progress'); if (prog) prog.value = 0;
+    const t = document.getElementById('play-time'); if (t) t.textContent = '0:00 / 0:00';
+  }
+}
+
+function setPlayBtn(text, disabled) {
+  const btn = playBtn(); if (!btn) return;
+  btn.textContent = text; btn.disabled = !!disabled;
+}
+
+/* 调速：前端即时变速（playbackRate），播放中切换立即生效，无需重新合成 */
+function onSpeedChange() {
+  const a = audioEl();
+  const speed = Number((document.getElementById('speed-sel') || {}).value || 1);
+  if (a && a.src) a.playbackRate = speed;
+}
+
+function seekTo(v) {
+  const a = audioEl(); if (!a || !a.duration) return;
+  a.currentTime = (v / 1000) * a.duration;
+}
+
+/* 进度条 + 时间同步 + 播完自动连读下一页 */
+function initAudioEvents() {
+  const a = audioEl();
+  a.addEventListener('timeupdate', () => {
+    if (!a.duration) return;
+    const prog = document.getElementById('play-progress'); if (prog) prog.value = Math.round((a.currentTime / a.duration) * 1000);
+    const t = document.getElementById('play-time'); if (t) t.textContent = fmtTime(a.currentTime) + ' / ' + fmtTime(a.duration);
+  });
+  a.addEventListener('ended', () => {
+    isReading = false;
+    if (readerPage < readerSections.length - 1) {
+      readerPage += 1; renderPage(); playCurrent();   // 整本连读：自动翻到下一页继续
+    } else {
+      setPlayBtn('▶ 播放', false);                     // 全书播完
+      const t = document.getElementById('play-time'); if (t) t.textContent = '0:00 / 0:00';
+    }
+  });
+}
+function fmtTime(s) { s = Math.floor(s || 0); const m = Math.floor(s / 60); return m + ':' + String(s % 60).padStart(2, '0'); }
+
+function closeModal() {
+  stopPlay(true);
+  document.getElementById('book-modal').classList.remove('show');
+}
+
+// ============ 导入记录 ============
+async function loadRecords() {
+  const body = document.getElementById('records-body');
+  try {
+    const res = await fetch(`${API_BASE}/api/import-records`);
+    const data = await res.json();
+    const records = data.items || [];
+    if (!records.length) { body.innerHTML = '<tr><td colspan="4" class="empty">NO RECORDS // 暂无导入记录</td></tr>'; return; }
+    body.innerHTML = records.map(r => `
+      <tr>
+        <td>${escapeHtml(r.file_name || '')}</td>
+        <td><span class="status ${r.status}">${r.status === 'completed' ? '完成' : r.status === 'processing' ? '处理中' : '失败'}</span></td>
+        <td>${escapeHtml((r.book_names || []).join('、') || '-')}</td>
+        <td>${formatTime(r.ts)}</td>
+      </tr>`).join('');
+  } catch (e) { body.innerHTML = `<tr><td colspan="4" class="empty">CONNECTION FAILED</td></tr>`; }
+}
+
+// ============ 通用 ============
+function switchTab(name) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === name));
+  document.getElementById('panel-library').style.display = name === 'library' ? 'block' : 'none';
+  document.getElementById('panel-records').style.display = name === 'records' ? 'block' : 'none';
+  cyberFlash(260);
+  if (name === 'records') loadRecords();
+}
+function loadAll() { cyberFlash(320); loadBooks(); }
+function escapeHtml(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
+function formatTime(ts) { if (!ts) return '-'; return new Date(ts * 1000).toLocaleString('zh-CN'); }
+
+window.addEventListener('DOMContentLoaded', () => {
+  cyberFlash(750);
+  initAudioEvents();
+});
+
+// 阅读器键盘：← 上一页 / → 下一页 / Esc 关闭
+document.addEventListener('keydown', e => {
+  if (!document.getElementById('book-modal').classList.contains('show')) return;
+  if (e.key === 'ArrowLeft') prevPage();
+  else if (e.key === 'ArrowRight') nextPage();
+  else if (e.key === 'Escape') closeModal();
+});
+
+loadBooks();
+</script>
+</body>
+</html>

@@ -18,32 +18,30 @@ class NodeRerank(NodeBase):
 
     def get_merge_chunks(self, state):
 
-        rrf_chunks = state.get("rrf_chunks")
-        # {
-        #     "content": "## 设备\n\n![设备需放置于平稳通风处，避免震动；搬运时双手托底，勿触危险区域；使用后断电，注意纸张边缘锋利。](http://192.168.100.88:9000/knowledge-base/upload-images/5067b2891ca4f761e2874921e0eb433aa742afbf38ca8dc509afecbf0aa6a6b5.jpg)",
-        #     "item_name": "BrotherHAK180烫金机",
-        #     "id": 468273558621788527,
-        #     "title": "## 设备",
-        #     "file_title": "hak180产品安全手册",
-        #     "score": 0.03252247488101534,
-        #     "source": "local"
-        # },
-        web_search_docs = state.get("web_search_docs")
-        # {
-        #     "title": "无版烫金+连续烫印?论一台优秀烫金机的自我修养!兄弟HAK180烫金机评测",
-        #     "content": "去年底,Brother在进博会发布HAK180烫金机,作为Brother旗下新品类,烫金机是其在打印机、一体机、标签机、条码机、扫描仪等之后,布局的又一办公文印设备品。作为一款主要针对高端文印店推出的产品,HAK180的问世,令烫金品在文印店中即可完成,无需再像以前跑到制作工厂去定制,简化流程提升效率;对于烫金需求方而言,也就是企业、学校、花店等,无需频繁的确认,减少了制作流程,向文印店提出需求后,在文印店中就可完成,简单的烫金需求甚至可以做到“立等可取”,一改了传统需要在“需求方,供应商,制作工厂”间频繁沟通、确认、修改的流程,HAK180让烫金流程更省时、更省力、更省沟通。那么,烫金机究竟如何工作,长相又如何,且随着笔者一同去认识这款产品! 我们先观看一段视频,了解下烫金机的用途 细分市场需求,灵巧机身,任性安置 近年来,随着文印市场逐渐呈现精细化发展趋势,高端文印的需求逐渐增加,大势之下兄弟HAK180烫金机应运而生。烫金机,顾名思义,可以简单理解为,在纸张表面烫印一层金色,当然,此“金”非彼“金”,就像上面提到的奖状、春联,只是在技术上有些特殊。 第一眼看到兄弟HAK180烫金机,如非提前知晓这是一台烫金机,可能会让人误以为是一台馈纸式扫描仪,毕竟从外观来看,兄弟HAK180烫金机与扫描仪有着相似的外观,尤其是进纸、出纸托盘的设计,都有着一定相似度。 机身顶部的进纸托盘可以存放大量用于烫印的纸张,HAK180支持多种纸张质量规格,像办公常用70g/m²的A4纸张,以及更厚更重350g/m²的A4纸张都是可以正常实现烫印的,其中90g/m²纸张可以同时存放44张,350g/m²纸张可以同时存放12张,并可实现纸张自动、连续进纸烫金(如文章起始视频所示),这得益于其采用的“多页连续烫金”技术,可以处理批量烫印任务。 兄弟HAK180烫金机还支持“无版烫金”,整个烫印过程无需提前制版。如上图所示,比如我们需要制作一张用于表彰员工,或是学生的荣誉证书/奖状,只需提前制作一张《荣誉证书》的样式(设计图),利用激光打印机,将样式内容打印出来,再将带有内容的一侧,面向HAK180放入到进纸托盘中,点击启动键后,HAK180可自动识别激光打印机打印的内容,并在激光打印机打印的内容上,进行烫印工作,只需静待数秒,烫印成品就可从出纸托盘输出。",
-        #     "url": "https://www.163.com/dy/article/HBO219SA05118VMB.html",
-        #     "source": "web"
-        # },
+        rrf_chunks = state.get("rrf_chunks") or []
+        web_search_docs = state.get("web_search_docs") or []
         merge_docs = rrf_chunks + web_search_docs
         merge_docs = [
             {
                 "title": doc.get("item_name", doc.get("title", "")),
                 "content": doc.get("content", ""),
                 "url": doc.get("url", ""),
-                "source": doc.get("source", "")
+                "source": doc.get("source", ""),
+                # 需求 §5 元数据字段：透传给下游生成/引用
+                "author": doc.get("author", ""),
+                "content_type": doc.get("content_type", ""),
+                "category": doc.get("category", ""),
+                "entry_name": doc.get("entry_name", ""),
+                "duration": doc.get("duration", ""),
             }
             for doc in merge_docs
+        ]
+        # 过滤空内容文档：rerank API（qwen3-vl-rerank）不接受空字符串/纯空白文档，
+        # 否则返回非 200 报"重排序出现问题"。空内容对下游回答也无意义。
+        # 必须在拼装阶段过滤，保证后续 texts 与 merge_docs 下标一一对应。
+        merge_docs = [
+            doc for doc in merge_docs
+            if doc.get("content") and doc["content"].strip()
         ]
         # logger.info(json_format(merge_docs))
         return merge_docs
@@ -51,6 +49,11 @@ class NodeRerank(NodeBase):
     def get_rerank_chunks(self, merge_docs, state):
         rewritten_query = state.get("rewritten_query")
         texts = [doc.get("content") for doc in merge_docs]
+        # 防御：过滤后无有效文档时跳过 rerank（空参调用 API 会报"重排序出现问题"）
+        if not rewritten_query or not texts:
+            for doc in merge_docs:
+                doc["score"] = 0.0
+            return merge_docs
         res = rerank(query=rewritten_query, texts=texts, limit=len(merge_docs))
         # 根据重排序结果，更新 merge_docs 中的文档列表
         for item in res:

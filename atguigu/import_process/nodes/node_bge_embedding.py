@@ -16,6 +16,7 @@ class NodeBGEEmbedding(NodeBase):
 
     def process(self, state: ImportGraphState):
         chunks=state.get('chunks','')
+        print("——————————chunks———————————", chunks)
         if not chunks:
             raise ValueError('没有chunks文件')
 

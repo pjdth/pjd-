@@ -12,6 +12,7 @@ from openai import api_key
 from pymongo.common import MAX_CONNECTING
 
 from atguigu.config.config import LLMConfig, MinIoConfig
+from atguigu.config.prompt import MD_IMG_SUMMARY_PROMPT
 from atguigu.import_process.base import NodeBase
 from atguigu.import_process.state import ImportGraphState
 from atguigu.tool.logger import logger
@@ -93,7 +94,7 @@ class NodeMDImg(NodeBase):
         dp = deque(maxlen=50)
         for image in image_with_content:
             join_time = time.time()
-            if len(dp) == dp.maxlen:
+            while len(dp) == dp.maxlen:
                 wait_time = 60 - (join_time - dp[0])
                 if wait_time > 0:
                     time.sleep(wait_time)
@@ -115,8 +116,7 @@ class NodeMDImg(NodeBase):
                                 "url": f"data:image/jpeg;base64,{base64_str.decode("utf-8")}",
                             },
                         },
-                        {"type": "text", "text": f"""这是一张图片，图片上文部分为"{image.get("pre_text")}"，
-                                                    下文部分为"{image.get("post_text")}"，请用中文简要总结这张图片的摘要,字数在50字以内。"""},
+                        {"type": "text", "text": MD_IMG_SUMMARY_PROMPT.format(pre_text=image.get("pre_text"), post_text=image.get("post_text"))},
                     ],
                 },
             ]
